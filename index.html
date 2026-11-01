@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>作文フィッシング</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=BIZ+UDPGothic:wght@400;700&display=swap">
+<style>
+/* 海図（ノーティカルチャート）。方眼の入った明るい海色の紙に、紺のインクと信号旗の赤。
+   漢検・英語アプリと混同しないよう、明るい単一テーマで固定 */
+:root{
+  --sea:#e4f2f5; --paper:#ffffff; --grid:#d0e6ec; --ink:#14304f; --sub:#4f6a80; --line:#b4d0db;
+  --signal:#e8453c; --signal-d:#a82a21; --teal:#0e8a86; --q:#2463d6; --qbg:#d4e2ff; --cond:#8a5f00; --cbg:#ffe08a;
+  --sun:#ffc93c; --ok:#1f9d55; --okbg:#e3f6ea; --ng:#d93a3a; --ngbg:#fde8e8; --navy:#14304f; --night:#0d2238;
+  --f-disp:"Dela Gothic One","BIZ UDPGothic","Hiragino Kaku Gothic ProN",system-ui,sans-serif;
+  --f-body:"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  color-scheme:light;
+}
+html,body{background:var(--sea);color:var(--ink)}
+body{font-family:var(--f-body);font-size:16px;line-height:1.75;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:3px solid var(--q);outline-offset:2px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1,h2,h3{font-family:var(--f-disp);font-weight:400;margin:0;text-wrap:balance;letter-spacing:.02em}
+h1{font-size:22px} h2{font-size:18px}
+.small{font-size:13px;color:var(--sub);font-family:var(--f-body)}
+.disp{font-family:var(--f-disp)}
+
+/* ヘッダー：紺の帯＋信号旗のしま */
+.mast{margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));padding:14px max(16px,env(safe-area-inset-left,0px)) 12px;background:var(--navy);color:#fff;
+  display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:6px solid transparent;
+  border-image:repeating-linear-gradient(90deg,var(--signal) 0 16px,#fff 16px 32px) 6}
+.mast .sub{font-size:12px;color:#bcd3e3;font-family:var(--f-body)}
+.tbtn{background:none;border:2px solid #4e6f8f;border-radius:999px;padding:3px 12px;font-size:13px;color:#fff}
+
+.card{background:var(--paper);border:2px solid var(--ink);border-radius:10px;padding:14px;box-shadow:4px 4px 0 var(--ink)}
+.status{display:grid;grid-template-columns:68px 1fr;gap:12px;align-items:center}
+.sprbox{width:68px;height:68px;border-radius:8px;background:var(--night);display:grid;place-items:center}
+canvas.spr{image-rendering:pixelated}
+.lvrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.lv{font-family:var(--f-disp);font-size:24px;color:var(--signal)}
+.ttl{font-family:var(--f-disp);font-size:15px}
+.bar{height:14px;background:var(--sea);border:2px solid var(--ink);border-radius:999px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),#3ec3b8);transition:width .5s}
+.xpnum{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums}
+
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.meter{background:var(--paper);border:2px solid var(--ink);border-radius:10px;padding:10px 12px;min-width:0}
+.meter b{font-family:var(--f-disp);font-size:30px;font-weight:400;font-variant-numeric:tabular-nums;line-height:1.2}
+.meter .unit{font-size:13px;color:var(--sub);margin-left:4px}
+.meter .lab{font-size:12px;color:var(--sub)}
+.meter.exam{background:var(--navy);color:#fff;border-color:var(--navy)} .meter.exam .lab,.meter.exam .unit{color:#bcd3e3} .meter.exam b{color:var(--sun)}
+.next{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);margin-top:2px}
+.next canvas{border-radius:4px;background:var(--night)}
+
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.games{display:flex;flex-direction:column;gap:12px}
+.gcard{display:grid;grid-template-columns:46px 1fr auto;gap:12px;align-items:center;text-align:left;width:100%;
+  background:var(--paper);border:2px solid var(--ink);border-radius:10px;padding:12px;box-shadow:4px 4px 0 var(--ink);transition:transform .08s,box-shadow .08s}
+.gcard:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.gcard.locked{opacity:.55;box-shadow:none;border-style:dashed;cursor:default}
+.gicon{width:46px;height:46px;display:grid;place-items:center;font-family:var(--f-disp);font-size:18px;border-radius:8px;color:#fff}
+.gname{font-family:var(--f-disp);font-size:16px}
+.gdesc{font-size:13px;color:var(--sub);line-height:1.5}
+.check{font-family:var(--f-disp);font-size:12px;padding:3px 10px;border-radius:999px;border:2px solid var(--line);color:var(--sub);white-space:nowrap}
+.check.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.check.rev{border-color:var(--signal);color:var(--signal)}
+.newbadge{display:inline-block;font-family:var(--f-disp);font-size:10px;background:var(--signal);color:#fff;border-radius:4px;padding:0 5px;margin-left:4px;vertical-align:2px}
+
+.winter{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:4px 4px 0 var(--signal)}
+.winter .small{color:#bcd3e3}
+.dots{display:flex;gap:8px;margin-top:6px}
+.dots i{width:22px;height:22px;border-radius:50%;border:2px solid #4e6f8f;display:grid;place-items:center;font-style:normal;font-size:12px}
+.dots i.on{background:var(--sun);border-color:var(--sun);color:var(--navy)}
+
+.route{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0}
+.route li{display:grid;grid-template-columns:22px 1fr;gap:10px;position:relative;padding-bottom:10px}
+.route li:not(:last-child)::before{content:"";position:absolute;left:10px;top:20px;bottom:0;border-left:2px dashed var(--line)}
+.route .pin{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);background:var(--paper);margin-top:2px}
+.route li.on .pin{background:var(--teal);border-color:var(--teal)}
+.route .rn{font-weight:700;font-size:14px}
+.route .rd{font-size:12px;color:var(--sub);line-height:1.5}
+.route li:not(.on) .rn{color:var(--sub)}
+
+.skills{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.skills li{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;border-bottom:1px dashed var(--line);padding-bottom:4px}
+.skills li>span:first-child{min-width:0}
+.pips{display:flex;align-items:center;gap:3px;white-space:nowrap}
+.pips i{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-radius:50%}
+.pips i.on{background:var(--sun);border-color:#d9a400}
+.mst{font-family:var(--f-disp);font-weight:400;font-size:11px;color:var(--signal);margin-left:4px}
+.duemark{font-size:11px;color:var(--signal);white-space:nowrap}
+
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:10px}
+.shelf figure{margin:0;text-align:center;font-size:11px;line-height:1.35;color:var(--sub);display:flex;flex-direction:column;align-items:center;gap:4px}
+.shelf .sprbox{width:52px;height:52px}
+.shelf figure.got{color:var(--ink);font-weight:700}
+.kanten{margin:0;padding-left:1.3em;font-size:14px}
+
+/* ゲーム画面 */
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:12px}
+.back{background:var(--paper);border:2px solid var(--ink);border-radius:999px;padding:4px 14px;font-size:14px}
+.prog{font-family:var(--f-disp);color:var(--sub);font-variant-numeric:tabular-nums}
+.tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tag{display:inline-block;font-size:12px;padding:1px 10px;border-radius:999px;background:var(--paper);border:1.5px solid var(--line);color:var(--sub)}
+.tag.past{border-color:var(--navy);background:var(--navy);color:#fff}
+.tag.retry{border-color:var(--ng);color:var(--ng);background:var(--ngbg)}
+.tag.rev{border-color:var(--teal);color:var(--teal)}
+.tag.hard{border-color:var(--signal);background:var(--signal);color:#fff}
+.howto{font-size:14px;color:var(--sub);margin:0}
+.rule{font-size:14px;line-height:1.7;background:var(--paper);border:2px solid var(--line);border-radius:10px;padding:10px 12px}
+
+.modes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mode{border:2px solid var(--ink);border-radius:999px;padding:8px 4px;background:var(--paper);font-family:var(--f-disp);font-size:13px}
+.mode[aria-pressed="true"].mq{background:var(--q);color:#fff;border-color:var(--q)}
+.mode[aria-pressed="true"].mc{background:var(--cbg);color:var(--ink);border-color:#d9a400}
+.mode[aria-pressed="true"].mn{background:var(--sub);color:#fff;border-color:var(--sub)}
+.sheet{background:var(--paper);border:2px solid var(--ink);border-radius:6px;padding:14px;line-height:2.15;font-size:16px;
+  background-image:linear-gradient(transparent calc(2.15em - 1px),#e7eef2 calc(2.15em - 1px));background-size:100% 2.15em}
+.chunk{display:inline;cursor:pointer;padding:3px 1px;border-radius:3px;color:var(--ink);
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;
+  text-decoration:underline dashed #6f9db3 2px;text-underline-offset:5px;-webkit-tap-highlight-color:rgba(36,99,214,.15)}
+.chunk:focus-visible{outline:2px solid var(--q)}
+.chunk.sq{background:var(--qbg);text-decoration:underline solid var(--q) 3px;text-underline-offset:5px}
+.chunk.sc{background:var(--cbg);text-decoration:underline solid #d9a400 3px;text-underline-offset:5px}
+.chunk.wrong{box-shadow:inset 0 0 0 2px var(--ng)} .chunk.right{box-shadow:inset 0 0 0 2px var(--ok)}
+.glue{color:var(--ink)}
+.mark{font-family:var(--f-disp);font-size:12px;vertical-align:super;margin-left:2px}
+
+.bigbtn{width:100%;padding:14px;border-radius:999px;border:2px solid var(--signal-d);background:var(--signal);color:#fff;font-family:var(--f-disp);font-size:17px;box-shadow:0 4px 0 var(--signal-d)}
+.bigbtn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--signal-d)}
+.bigbtn.ghost{background:var(--paper);color:var(--ink);border-color:var(--ink);box-shadow:0 4px 0 var(--ink)}
+.bigbtn.teal{background:var(--teal);border-color:#08605d;box-shadow:0 4px 0 #08605d}
+
+.fb{border-radius:10px;padding:12px 14px;border:2px solid var(--line);background:var(--paper);font-size:15px}
+.fb.good{border-color:var(--ok);background:var(--okbg)} .fb.bad{border-color:var(--ng);background:var(--ngbg)}
+.fb h3{font-size:17px;margin:0 0 6px}
+.fb ol,.fb ul{margin:4px 0;padding-left:1.4em}
+.qli{color:var(--q);font-weight:700} .cli{color:var(--cond);font-weight:700}
+.again{font-family:var(--f-disp);color:var(--signal);margin-top:8px;font-size:14px}
+
+.slots{display:flex;flex-direction:column;gap:8px}
+.slot{border:2px dashed var(--line);border-radius:8px;padding:10px 12px;min-height:46px;font-size:14px;color:var(--sub);background:rgba(255,255,255,.6)}
+.slot.filled{border-style:solid;border-color:var(--ok);background:var(--paper);color:var(--ink)}
+.slot .role{font-family:var(--f-disp);font-size:12px;color:var(--teal);display:block}
+.pool{display:flex;flex-direction:column;gap:8px}
+.pcard{text-align:left;width:100%;background:var(--paper);color:var(--ink);border:2px solid var(--ink);border-left:8px solid var(--signal);border-radius:8px;padding:10px 12px;font-size:14px;line-height:1.8}
+.pcard.shake,.choice.shake{animation:shake .35s}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.gauge{display:flex;height:22px;border:2px solid var(--ink);border-radius:4px;overflow:hidden;background:var(--sea);position:relative}
+.gauge span{display:block;height:100%;border-right:2px solid var(--paper);font-size:11px;line-height:18px;text-align:center;color:#fff;font-weight:700;overflow:hidden;white-space:nowrap}
+.gauge .lim{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ng)}
+.legend{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums}
+
+.ctx{font-size:14px;color:var(--sub)}
+.choices{display:flex;flex-direction:column;gap:10px}
+.choice{text-align:left;width:100%;background:var(--paper);color:var(--ink);border:2px solid var(--ink);border-radius:10px;padding:12px 14px;font-size:16px;line-height:1.8;display:grid;grid-template-columns:28px 1fr;gap:8px;box-shadow:3px 3px 0 var(--ink)}
+.choice .ab{font-family:var(--f-disp);font-size:18px;color:var(--sub)}
+.choice.right{border-color:var(--ok);background:var(--okbg);box-shadow:3px 3px 0 var(--ok)}
+.choice.wrong{border-color:var(--ng);background:var(--ngbg);box-shadow:3px 3px 0 var(--ng)}
+.choice:disabled{cursor:default}
+.choice .why{grid-column:2;font-size:13px;color:var(--ng);font-weight:700}
+
+.timer{font-family:var(--f-disp);font-size:56px;text-align:center;font-variant-numeric:tabular-nums;line-height:1.1}
+.timer.warn{color:var(--signal)}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.checks label{display:grid;grid-template-columns:26px 1fr;gap:8px;align-items:start;font-size:15px;background:var(--paper);border:2px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer}
+.checks input{width:22px;height:22px;margin:2px 0 0;accent-color:var(--teal)}
+
+/* 演出 */
+.fx{position:fixed;inset:0;pointer-events:none;display:grid;place-items:center;z-index:50}
+.combo{font-family:var(--f-disp);text-align:center;color:var(--signal);text-shadow:3px 3px 0 #fff,6px 6px 0 var(--ink);animation:combo 1.2s ease-out forwards}
+.combo b{display:block;font-size:54px;font-weight:400;line-height:1}
+.combo small{display:block;font-size:18px;color:var(--ink);text-shadow:2px 2px 0 #fff}
+@keyframes combo{0%{transform:scale(.3);opacity:0}15%{transform:scale(1.25);opacity:1}30%{transform:scale(1)}70%{transform:translateY(-20px);opacity:1}100%{transform:translateY(-90px);opacity:0}}
+.xpfloat{position:fixed;left:50%;top:40%;transform:translateX(-50%);font-family:var(--f-disp);color:var(--teal);font-size:22px;pointer-events:none;animation:xpf 1s ease-out forwards;z-index:40;text-shadow:2px 2px 0 #fff}
+@keyframes xpf{from{opacity:1;margin-top:0}to{opacity:0;margin-top:-60px}}
+.ov{position:fixed;inset:0;background:rgba(10,26,44,.9);display:grid;place-items:center;z-index:60;color:#fff;overflow:hidden;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.ovbox{text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;max-width:420px;position:relative;z-index:2}
+.ov .big{font-family:var(--f-disp);font-size:clamp(34px,10vw,52px);line-height:1.1;color:var(--sun);text-shadow:3px 3px 0 var(--signal-d);animation:pop .6s ease-out}
+.ov .mid{font-family:var(--f-disp);font-size:clamp(22px,6vw,30px);line-height:1.3}
+.ov .sm{font-size:15px;color:#cfe0ec}
+.ov .pill{font-family:var(--f-disp);background:var(--signal);color:#fff;border-radius:999px;padding:6px 16px;font-size:18px}
+.ov .sprbox{width:132px;height:132px;animation:spin .9s ease-out}
+.ov .tap{font-size:12px;color:#8fb0c8;margin-top:6px}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes spin{from{transform:rotate(-360deg) scale(.2)}to{transform:none}}
+.conf{position:absolute;top:-20px;width:10px;height:14px;animation:fall 2.6s linear forwards;z-index:1}
+@keyframes fall{to{transform:translateY(110vh) rotate(540deg)}}
+.res{text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center;padding-top:20px}
+.res .score{font-family:var(--f-disp);font-size:42px;color:var(--signal)}
+.res .note{font-family:var(--f-disp);color:var(--teal)}
+
+/* さかな図鑑 */
+.zcardbtn{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center;text-align:left;width:100%;cursor:pointer}
+.zcardbtn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+#zprev{background:linear-gradient(#cfe9f2,#a8d3e3);border-radius:8px;display:grid;place-items:center;min-height:62px}
+.zn{font-family:var(--f-disp);font-weight:400;font-size:26px;color:var(--teal)}
+.swim{position:fixed;left:0;z-index:45;pointer-events:none;display:flex;flex-direction:column;align-items:center;animation:swim 3s linear forwards}
+.swim .fishcv{filter:drop-shadow(0 4px 6px rgba(10,40,60,.35));animation:bob .6s ease-in-out infinite alternate}
+.catchbars{position:fixed;left:0;right:0;top:calc(10px + env(safe-area-inset-top,0px));z-index:46;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.catchbar{font-family:var(--f-disp);font-size:18px;background:var(--navy);color:#fff;border:2px solid #fff;border-radius:999px;padding:6px 18px;box-shadow:0 4px 12px rgba(10,30,50,.35);text-align:center;animation:cb 3s ease forwards;max-width:100%}
+.catchbar b{color:var(--sun);font-weight:400} .catchbar .st{color:var(--sun);font-size:14px} .catchbar small{font-size:13px;color:#bcd3e3}
+@keyframes cb{0%{opacity:0;transform:translateY(-12px)}10%,85%{opacity:1;transform:none}100%{opacity:0}}
+.bigbtn.auto{background-image:linear-gradient(90deg,rgba(255,255,255,.32),rgba(255,255,255,.32));background-size:0 100%;background-repeat:no-repeat;animation:fillbar 3s linear forwards}
+@keyframes fillbar{to{background-size:100% 100%}}
+@keyframes swim{from{transform:translateX(105vw)}to{transform:translateX(-180px)}}
+@keyframes bob{from{transform:translateY(-4px) rotate(-1.5deg)}to{transform:translateY(4px) rotate(1.5deg)}}
+.catches{text-align:left;width:100%}
+.clist{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.citem{display:grid;grid-template-columns:120px 1fr;grid-template-rows:auto auto;column-gap:10px;text-align:left;background:var(--sea);border:2px solid var(--line);border-radius:8px;padding:8px}
+.citem .cpic{grid-row:1/4;background:linear-gradient(#e0f1f6,#bfe0ea);border-radius:6px;display:grid;place-items:center}
+.citem .cn{font-weight:700;font-size:15px} .citem .cs{font-size:12px;color:var(--sub);line-height:1.5}
+.citem .cs b{color:var(--signal)} .citem .cd{font-size:12px;color:var(--ng);font-weight:700}
+.newb{font-family:var(--f-disp);font-weight:400;font-size:11px;background:var(--signal);color:#fff;border-radius:4px;padding:0 5px;margin-right:4px}
+.newb.rec{background:var(--teal)}
+.zov{position:fixed;inset:0;background:rgba(10,26,44,.75);z-index:70;overflow-y:auto;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.zcard{max-width:520px;margin:20px auto;background:var(--paper);border:2px solid var(--ink);border-radius:12px;padding:16px;position:relative;box-shadow:6px 6px 0 var(--signal)}
+.zclose{position:absolute;right:10px;top:8px;width:36px;height:36px;border-radius:50%;border:2px solid var(--ink);background:var(--paper);font-size:20px;line-height:1}
+.zpic{background:linear-gradient(#dff0f6,#b6dbe8);border-radius:8px;display:grid;place-items:center;padding:8px 0;margin-top:28px}
+.zpic .fishcv{max-width:100%;height:auto}
+.zhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:10px}
+.zhead h2{font-size:24px}
+.rare{font-family:var(--f-disp);font-size:13px;color:var(--sub)} .rare.r3,.zt-r.r3{color:#c98a00} .rare.r4,.zt-r.r4{color:var(--signal)}
+.zmeta{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.zmeta span{font-size:12px;background:var(--sea);border-radius:999px;padding:2px 10px}
+.zdl{margin:0}.zdl dt{font-family:var(--f-disp);font-size:14px;color:var(--teal);margin-top:10px}.zdl dd{margin:2px 0 0;font-size:15px;line-height:1.75}
+.zdl .danger{color:var(--ng)}
+.zlink{display:inline-block;margin-top:12px;font-weight:700;color:var(--q)}
+.zarea{margin:6px 0 8px;font-size:16px;border-left:6px solid var(--signal);padding-left:8px}
+.zgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:10px}
+.ztile{background:var(--paper);border:2px solid var(--line);border-radius:8px;padding:6px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.ztile.got{border-color:var(--ink)}
+.zt-pic{display:block;background:linear-gradient(#e6f3f7,#cbe6ee);border-radius:6px;width:100%;display:grid;place-items:center}
+.zt-n{font-size:12px;font-weight:700;line-height:1.3;text-align:center;word-break:keep-all;overflow-wrap:anywhere}
+.zt-r{font-size:11px;color:var(--sub)}
+.ztile.shake{animation:shake .35s}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition:none!important}}
+</style>
+
+</head><body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* ===== データ ===== */
+const EXAM = new Date(2027,0,26);
+
+// 問題文。q=問い（何を書くか・数字は問いの番号）/ c=条件（どう書くか）/ i=前置き（印なし）/ t=つなぎ言葉（タップ不可）
+// ※字数の数え方の注意書き（書き出しの空欄や句読点も数える）は、どの年も同じなので省略
+const C1=["c","具体的に"],C2=["c","500字以上600字以内で"],T1=["t","書きなさい。"];
+const PROMPTS = [
+ {id:"r8",label:"令和8年度 過去問",past:true,chunks:[
+  ["i","人と関わる上では、円滑なコミュニケーションが大切になります。"],
+  ["q","学校生活においてコミュニケーションはなぜ大切だと思うか",1],["t","、"],
+  ["c","これまでのあなたの体験をふまえて"],["t","書きなさい。また、"],
+  ["q","それを本校入学後の学校生活においてどのように向上させていきたいと考えるか",2],["t","、"],C1,C2,T1]},
+ {id:"r7",label:"令和7年度 過去問",past:true,chunks:[
+  ["i","本校では、水産・海洋について学ぶことが出来ます。"],
+  ["q","あなたが興味・関心のある「水産・海洋に関する話題」",1],["t","を"],["c","一つ挙げ、説明して"],["t","ください。また、"],
+  ["q","本校で水産・海洋についてどのようなことを学ぼうと考えていますか。",2],
+  ["c","あなたが興味・関心のある、水産・海洋に関する話題と関連付けて"],["t","、"],
+  ["c","できるだけ具体的に"],["t","書いてください。"],["c","字数は500字以上600字以内"],["t","とします。"]]},
+ {id:"r6",label:"令和6年度 過去問",past:true,chunks:[
+  ["i","本校の教育目標である「誠実」「礼節」「協力」の中で、"],
+  ["q","あなたが特に大事だと考えるもの",1],["t","を"],["c","一つ選び"],["t","、"],["q","その理由",1],["t","を述べなさい。また、"],
+  ["q","それを本校入学後の高校生活において",2],C1,["q","どのように実現していきたいと考えるか",2],["t","、"],C2,T1]},
+ {id:"rine",label:"過去問（教育理念）",past:true,chunks:[
+  ["i","本校の教育理念は「海に学び、未来を拓く」である。"],
+  ["q","あなたは水産・海洋について本校で何を学びたいか。",1],["t","また"],
+  ["q","そのことを将来にどのように生かしたいか。",2],C1,C2,T1]},
+ {id:"y1",label:"想定問題",chunks:[
+  ["i","本校では、多くの生徒が寮で共同生活を送ります。"],
+  ["q","共同生活であなたが大切にしたいことは何か",1],["t","、"],
+  ["c","これまでの体験をふまえて"],["t","書きなさい。また、"],
+  ["q","それを本校での生活にどのように生かしたいか",2],["t","、"],C1,C2,T1]},
+ {id:"y2",label:"想定問題",chunks:[
+  ["i","高校生活では、思うようにいかない場面に出会うこともあります。"],
+  ["q","あなたが困難を乗り越えた経験",1],["t","を"],["c","一つ挙げ"],["t","、"],["q","そこから学んだこと",1],["t","を書きなさい。また、"],
+  ["q","その学びを本校入学後にどのように生かしたいか",2],["t","、"],C1,C2,T1]},
+ {id:"y3",label:"想定問題",chunks:[
+  ["i","近年、海洋ごみや水産資源の減少など、海をめぐる問題が注目されています。"],
+  ["q","あなたが関心をもつ海の問題",1],["t","を"],["c","一つ挙げ"],["t","、"],["q","それについてのあなたの考え",1],["t","を書きなさい。また、"],
+  ["q","その問題に本校での学びを通してどのように取り組みたいか",2],["t","、"],C1,C2,T1]},
+ {id:"y4",label:"想定問題",chunks:[
+  ["i","本校の学科名には「国際」という言葉が入っています。"],
+  ["q","あなたは海を通して、世界とどのように関わりたいと考えるか。",1],["t","また、"],
+  ["q","そのために本校でどのような力を身に付けたいか",2],["t","、"],
+  ["c","あなたの経験や関心と関連付けて"],["t","、"],C2,T1]},
+ {id:"y5",label:"想定問題",chunks:[
+  ["i","本校は伊豆大島にあり、地域の方々と関わる機会が多くあります。"],
+  ["q","あなたがこれまでに地域や仲間のために行動した経験を書き",1],["t","、"],
+  ["q","本校入学後、大島の地域とどのように関わりたいか",2],["t","を、"],C1,C2,T1]},
+ {id:"y6",label:"想定問題",chunks:[
+  ["i","集団生活では、決まりを守ることが求められます。"],
+  ["q","決まりを守ることはなぜ大切だと思うか",1],["t","、"],
+  ["c","あなたの体験をふまえて"],["t","書きなさい。また、"],
+  ["q","本校での生活でそれをどのように実践したいか",2],["t","、"],C1,C2,T1]}
+];
+
+const ROLES = ["① 結論（問いへの答え）","② 体験（いつ・どこで・何をした）","③ 体験からの学び","④ 入学後・将来（二つめの問いへの答え）"];
+const ESSAYS = [
+ {id:"e1",prompt:"r8",title:"コミュニケーションはなぜ大切か",paras:[
+  "私は、学校生活においてコミュニケーションが大切なのは、相手の考えを知ることで、一人ではできないことを仲間と実現できるからだと考える。言葉にしなければ、思いは相手に伝わらないのである。",
+  "中学二年生の体育祭で、私はクラスの大縄跳びの練習をまとめる係になった。最初は記録が伸びず、私は注意ばかりしていた。すると、練習に来る人がだんだん減ってしまった。困った私は、休み時間に一人ずつ話を聞いてみた。すると、縄に入るタイミングがつかめず、不安に思っている人が多いことがわかった。",
+  "そこで、跳ぶのが苦手な人の位置を変え、全員で声を出してリズムを合わせることにした。その結果、本番ではクラス最高の記録を出すことができた。この経験から、話すことと同じくらい、相手の話を聞くことが大切だと学んだ。注意するだけでは人は動かないが、相手の気持ちを理解すれば、一緒に工夫することができるのだ。",
+  "本校に入学したら、寮生活や実習で、仲間と協力する場面が多くあると思う。寮では、生活の時間や習慣がちがう仲間と過ごすことになる。私は、自分から声をかけ、相手の話を最後まで聞くことを心がけたい。また、意見が分かれたときには、それぞれの理由を確かめてから話し合いたい。そうして、互いに信頼し合える関係をつくっていきたい。"]},
+ {id:"e2",prompt:"r6",title:"「協力」を選んだ作文",paras:[
+  "私は、「誠実」「礼節」「協力」の中で、「協力」が特に大事だと考える。なぜなら、一人ひとりの力は小さくても、力を合わせることで大きな成果を生み出せるからである。合唱コンクールでの経験から、私はそのことを強く実感した。",
+  "中学三年生の合唱コンクールで、私たちのクラスは練習の初めのころ、男子の声が小さく、まとまりがなかった。練習中に言い争いになることもあり、クラスの雰囲気は悪くなっていった。私はパートリーダーとして、どうすればよいか悩んだ。そこで、得意な人と苦手な人で二人組を作り、昼休みに少しずつ練習することを提案した。",
+  "はじめは参加する人が少なかったが、上達を実感した人が増えるにつれて、練習の輪が広がっていった。本番では全員の声がそろい、金賞を取ることができた。この経験から、一人ひとりが役割を果たし、支え合うことで、集団の力が何倍にもなることを学んだ。また、自分が教える側に立ったことで、相手に合わせて伝える工夫も身に付いた。",
+  "本校では、寮生活や海での実習など、仲間と力を合わせる場面が多い。入学後は、自分の役割を責任をもって果たすとともに、困っている仲間がいれば進んで声をかけたい。例えば、実習では作業の手順を仲間と確認し合い、安全に作業を進めたい。そして、「協力」を通して、互いに高め合える高校生活を実現していきたい。"]},
+ {id:"e3",prompt:"r7",title:"魚がとれにくくなっている問題",paras:[
+  "私が関心をもっている水産・海洋に関する話題は、日本の近海で魚がとれにくくなっている問題である。例えば、以前は安く食べられたサンマも、近年は水揚げ量が大きく減り、値段が高くなっている。このままでは、日本の食卓から身近な魚が消えてしまうかもしれない。",
+  "私がこの問題に関心をもったのは、家族で行った漁港の朝市で、漁師の方から、昔に比べて魚が減ったという話を聞いたからだ。私は、毎日の食事に欠かせない魚が減っていることに驚き、もっと詳しく知りたいと思った。調べてみると、海水温の上昇や、魚のとりすぎなどが原因として考えられていることがわかった。",
+  "この問題を解決するためには、魚を「とる」だけでなく、「育てる」ことや「守る」ことが大切だと考える。資源の量を調べながら漁をしたり、魚を育てる技術を高めたりすることで、未来の世代も魚を食べ続けられるようになると思う。また、私たち消費者も、資源を守って育てられた魚を選ぶことで、この問題の解決に協力できる。",
+  "本校に入学したら、魚の生態や、資源を守るための漁業のしくみについて学びたい。また、実習を通して、海で働くための技術を身に付けたい。さらに、地元の漁業の方々の話を聞き、現場で起きている問題を知りたい。将来は、本校で学んだことを生かし、海の恵みを未来に残す仕事に関わりたい。"]},
+ {id:"e4",prompt:"rine",title:"「海に学び、未来を拓く」",paras:[
+  "本校の教育理念「海に学び、未来を拓く」を読んで、私は、海の環境を守るための知識と技術を、実際の海での体験を通して学びたいと考えた。海は豊かな恵みを与えてくれる一方で、多くの問題も抱えているからだ。",
+  "私は小学生のころ、家族で伊豆の海へ行き、初めてシュノーケリングをした。色とりどりの魚に感動した一方で、岩場にペットボトルやビニール袋が流れ着いているのを見て、とても悲しくなった。家に帰ってから調べると、海に流れ出るプラスチックごみは年々増えており、海の生き物にも被害が出ていることを知った。それ以来、海の環境に関するニュースに目が向くようになった。",
+  "本校では、海の生き物や環境について学べるだけでなく、海での実習を通して、教室だけでは得られない経験ができる。私は、海の環境を調べる方法や、海で安全に活動するための技術を身に付けたい。さらに、大島の豊かな自然の中で、海と人との関わりを自分の目で確かめたい。また、寮生活を通して、自分のことは自分でする力も養いたい。",
+  "将来は、学んだことを生かして、海の環境を守る仕事に就きたい。例えば、海の調査をしたり、子どもたちに海の大切さを伝えたりする活動に取り組みたい。海で学んだことを人に伝え、未来の海を守る人を一人でも増やすことが、私の目標である。本校での三年間を、その夢への第一歩にしたい。"]}
+ ,{id:"e5",prompt:"y2",title:"苦手な水泳を乗り越えた",paras:[
+  "私が困難を乗り越えた経験は、中学二年生のときに、苦手だった水泳で二十五メートルを泳ぎ切ったことである。この経験から、大きな目標も小さく分けて努力を続ければ達成できることを学んだ。",
+  "私は小学生のころから水が苦手で、プールの授業では顔をつけることもできなかった。水の中で体が沈んでいく感覚が、とてもこわかったのである。中学二年生の夏、水泳の記録会で二十五メートルを泳ぐという目標が出された。私は最初、とても無理だと思い、練習から逃げたくなった。",
+  "そこで、先生と相談し、一週間ごとに目標を決めることにした。最初は顔をつける、次は五メートル進む、というように少しずつ距離を伸ばした。記録会の日、私は初めて二十五メートルを泳ぎ切ることができた。途中で何度もくじけそうになったが、先生や友達がはげましてくれたことも力になった。大きな目標も、小さな一歩の積み重ねで達成できるのだと実感した。",
+  "本校では、海での実習など、初めて経験することが多くあると思う。うまくいかない場面でも、目標を小さく分けて、一つずつ乗り越えていきたい。例えば、海での実習で思うようにできなくても、あきらめずに練習を重ねたい。そして、この学びを生かし、困難に負けずに挑戦し続ける高校生活を送りたい。"]}
+ ,{id:"e6",prompt:"y1",title:"共同生活で大切にしたいこと",paras:[
+  "私が共同生活で大切にしたいことは、相手を思いやって行動することである。多くの人が一緒に暮らす場所では、一人ひとりの小さな気づかいが、全員の過ごしやすさにつながるからだ。寮生活では、一人の行動がまわりの全員に影響する。",
+  "中学二年生の林間学校で、私は四人部屋の班長になった。初日の夜、部屋の片付けをする人としない人に分かれ、班の雰囲気が悪くなってしまった。私は強く注意しようと思ったが、まず理由を聞いてみることにした。すると、慣れない場所で疲れていて、何から手をつければよいかわからなかったことがわかった。",
+  "そこで、全員で片付けの分担表を作り、終わったら声をかけ合うことにした。二日目からは部屋がきれいに保たれ、班の会話も増えた。この経験から、相手の事情を考えて行動することが、気持ちよく暮らすために大切だと学んだ。注意するよりも、まず相手の話を聞くことで、問題を一緒に解決できたのである。",
+  "本校の寮生活では、生活の習慣がちがう仲間と過ごすことになる。私は、困っている人がいれば理由を聞き、できることを一緒に考えたい。また、当番などの役割を責任をもって果たしたい。例えば、共有の場所を使ったら、次の人のためにきれいにしておきたい。そうして、互いに支え合える寮生活をつくっていきたい。"]}
+];
+
+// どっちが良い文？ スキルごとに中身のちがう問題を3問以上用意（まちがえたら同じスキルの別問題が出る）
+const SKILLS = {gu:"具体的に書く",nk:"入学後を具体的に",tk:"書き出しで問いに答える",mn:"体験から学びへつなぐ",ii:"自信をもって言い切る",mu:"結びの一文",
+ wa:"話し言葉を使わない",ry:"略語・一人称",nu:"い抜き・ら抜き",bm:"文末をそろえる",nn:"一文を短く",nj:"主語と述語（ねじれ）",ko:"言葉の呼応"};
+const PAIRS = [
+ {k:"gu",ctx:"体験を書く場面",g:"私は中学二年生の体育祭で、クラスの応援リーダーを務めた。",b:"私はいろいろな行事でがんばった。",why:"「いつ・どこで・どんな役割で」が書いてあると、読む人に場面が浮かびます。「いろいろ」「がんばった」はぼんやりした言葉です。"},
+ {k:"gu",ctx:"体験を書く場面",g:"昼休みに、苦手な人と二人組を作って教え合った。",b:"みんなで協力してがんばった。",why:"「協力した」は、実際に何をしたのかに言いかえます。行動が見えると説得力が出ます。"},
+ {k:"gu",ctx:"体験を書く場面",g:"毎朝七時に登校し、花壇の水やりを一年間続けた。",b:"毎日、学校のために活動を続けた。",why:"時間・期間・何をしたかを書くと、努力の大きさが伝わります。"},
+ {k:"gu",ctx:"結果を書く場面",g:"その結果、クラスの記録は前回より二十回も伸びた。",b:"その結果、すごくよくなった。",why:"数字や変化を入れると、結果が正確に伝わります。"},
+ {k:"nk",ctx:"入学後にしたいこと",g:"本校では、魚を育てる技術を実習で学びたい。",b:"本校でいろいろなことを学びたい。",why:"何を・どうやって学ぶかまで書くと、「この学校で学びたい理由」がはっきりします。"},
+ {k:"nk",ctx:"問い「入学後どのように実現したいか」への答え",g:"入学後は、実習の班で自分から役割を引き受け、話し合いの進め役をしたい。",b:"入学後も、これまで以上にがんばりたい。",why:"「どのように」と聞かれたら、場面と行動まで書きます。「がんばりたい」だけでは答えになりません。"},
+ {k:"nk",ctx:"入学後の生活",g:"入学後は、寮の当番を責任をもってこなし、後輩に仕事を教えられるようになりたい。",b:"入学後は、寮生活をしっかりがんばりたい。",why:"「しっかり」「がんばる」ではなく、どんな場面で何をするのかを書きます。"},
+ {k:"tk",ctx:"問い「コミュニケーションはなぜ大切か」の書き出し",g:"私は、コミュニケーションが大切なのは、仲間と力を合わせるために欠かせないからだと考える。",b:"私は小さいころから、人と話すのが好きだった。",why:"書き出しの一文で、問いに直接答えます（結論が先）。体験はそのあとに書きます。"},
+ {k:"tk",ctx:"問い「水産・海洋の話題を一つ挙げ、説明しなさい」の書き出し",g:"私が関心をもつ話題は、海洋プラスチックごみの問題である。",b:"海にはいろいろな問題があると思う。",why:"「一つ挙げ」と聞かれたら、最初にはっきり一つを名指しします。"},
+ {k:"tk",ctx:"問い「誠実・礼節・協力から一つ選び、理由を述べなさい」の書き出し",g:"私は、三つの中で「礼節」が特に大事だと考える。",b:"私の中学校にも、たくさんのきまりがある。",why:"「一つ選び」と聞かれたら、最初の一文で選んだものを書きます。"},
+ {k:"mn",ctx:"体験のあとの一文",g:"この経験から、相手の立場に立って考えることの大切さを学んだ。",b:"この経験は、とてもいい思い出になった。",why:"体験は「何を学んだか」までつなげます。それが入学後の話への橋わたしになります。"},
+ {k:"mn",ctx:"失敗した体験のあとの一文",g:"この失敗から、準備の大切さを身をもって学んだ。",b:"この失敗は、本当につらい出来事だった。",why:"つらかった気持ちで終わらせず、そこから何を学んだかを書きます。"},
+ {k:"mn",ctx:"体験のあとの一文",g:"この体験を通して、言葉で伝える力が大切だと気づいた。",b:"この体験は、楽しくてよかった。",why:"感想（楽しかった）ではなく、気づいたこと・学んだことを書きます。"},
+ {k:"ii",ctx:"自分の考えを書く場面",g:"私は、協力が最も大切だと考える。",b:"私は、協力が一番大切なのではないかなと思う。",why:"自分の考えは自信をもって言い切ります。「〜かな」はあいまいに聞こえます。"},
+ {k:"ii",ctx:"将来の夢を書く場面",g:"私は、海の仕事に就きたい。",b:"私は、海の仕事に就けたらいいなと思っている。",why:"「〜たらいいな」は自信がなく見えます。「〜したい」とはっきり書きます。"},
+ {k:"ii",ctx:"考えを書く場面",g:"コミュニケーションは、信頼を築くために欠かせない。",b:"コミュニケーションは、たぶん大切なのだと思う。",why:"「たぶん」は作文では使いません。考えは言い切ります。"},
+ {k:"mu",ctx:"作文の最後",g:"本校での三年間を、夢への第一歩にしたい。",b:"以上で、私の作文を終わります。",why:"最後は前向きな決意でまとめます。「終わります」は書かなくてよい言葉です。"},
+ {k:"mu",ctx:"作文の最後",g:"そうして、互いに信頼し合える仲間をつくっていきたい。",b:"なので、これからもよろしくお願いします。",why:"作文は手紙ではありません。あいさつではなく、自分の決意で結びます。"},
+ {k:"mu",ctx:"作文の最後",g:"海から学んだことを生かし、未来の海を守る人になりたい。",b:"長くなりましたが、読んでいただきありがとうございました。",why:"お礼のあいさつは不要です。最後の一文は、問いに対する自分の決意で結びます。"},
+ {k:"wa",ctx:"感想を書く場面",g:"本番は、とても楽しかった。",b:"本番は、めっちゃ楽しかった。",why:"作文は書き言葉で書きます。「めっちゃ」は話し言葉です。"},
+ {k:"wa",ctx:"理由をつなぐ場面",g:"だから、私は協力が大切だと考える。",b:"なので、私は協力が大切だと考える。",why:"文の頭の「なので」は話し言葉です。「だから」「そのため」を使います。"},
+ {k:"wa",ctx:"体験を書く場面",g:"しかし、記録はなかなか伸びなかった。",b:"でも、記録はなかなか伸びなかった。",why:"文の頭の「でも」は話し言葉です。「しかし」「だが」を使います。"},
+ {k:"ry",ctx:"部活動を書く場面",g:"私は部活動の練習を一日も休まなかった。",b:"私は部活の練習を一日も休まなかった。",why:"「部活」などの略した言葉は、正式な言い方に直します。"},
+ {k:"ry",ctx:"自分のことを書く場面",g:"私は、海の仕事に興味がある。",b:"僕は、海の仕事に興味がある。",why:"作文の一人称は「私」がきほんです。"},
+ {k:"ry",ctx:"生活を見直した場面",g:"私は、スマートフォンの使い方を見直した。",b:"私は、スマホの使い方を見直した。",why:"「スマホ」は略した言葉です。「スマートフォン」と書きます。"},
+ {k:"nu",ctx:"体験を書く場面",g:"毎朝練習をしていると、だんだん上達した。",b:"毎朝練習してると、だんだん上達した。",why:"「してる」は「い」がぬけた話し言葉です。「している」と書きます。"},
+ {k:"nu",ctx:"できるようになったこと",g:"朝早く起きられるようになった。",b:"朝早く起きれるようになった。",why:"「起きれる」は「ら」がぬけた言葉です。「起きられる」が正しい形です。"},
+ {k:"nu",ctx:"できたことを書く場面",g:"最後まで、自分の力で答えを考えられた。",b:"最後まで、自分の力で答えを考えれた。",why:"「考えれた」は「ら」がぬけています。「考えられた」が正しい形です。"},
+ {k:"bm",ctx:"書き出し",g:"私は海が好きだ。だから本校を志望した。",b:"私は海が好きです。だから本校を志望した。",why:"「です・ます」と「だ・である」を混ぜないこと。入試の作文は「だ・である」でそろえるのがおすすめです。"},
+ {k:"bm",ctx:"考えを書く場面",g:"海の環境は年々悪化している。私はその現状を変えたい。",b:"海の環境は年々悪化しています。私はその現状を変えたい。",why:"一つめの文が「です・ます」、二つめが「だ・である」で混ざっています。"},
+ {k:"bm",ctx:"気持ちを書く場面",g:"私は寮生活に不安があった。しかし、今は楽しみだ。",b:"私は寮生活に不安がありました。しかし、今は楽しみだ。",why:"文末は作文の最初から最後まで、どちらか一つにそろえます。"},
+ {k:"nn",ctx:"体験を書く場面",g:"私は係になった。しかし、最初はうまくいかなかった。",b:"私は係になったけど最初はうまくいかなくて、みんなも来なくなって困ったけど、",why:"「〜て、〜けど」で長くつなげると、読みにくくなります。一文は60字くらいまでを目安に区切りましょう。"},
+ {k:"nn",ctx:"理由を書く場面",g:"練習に来る人が減った。理由は、注意ばかりしていたからだ。",b:"注意ばかりしていたので練習に来る人が減ってしまったので、私は困ってしまい、",why:"「〜ので、〜ので」と続けず、文を切ってから理由を書くと伝わりやすくなります。"},
+ {k:"nn",ctx:"体験を書く場面",g:"大会は雨で中止になった。私たちは、その分練習を重ねた。",b:"大会は雨で中止になったけど、私たちはその分練習を重ねて、次の大会に向けて準備して、",why:"一つの文に出来事をつめこみすぎています。文を区切ると読みやすくなります。"},
+ {k:"nj",ctx:"夢を書く場面",g:"私の夢は、海の環境を守る仕事に就くことだ。",b:"私の夢は、海の環境を守る仕事に就きたい。",why:"「夢は」で始めたら「〜ことだ」で終えます。主語と述語がかみ合っていない文を「ねじれ文」といいます。"},
+ {k:"nj",ctx:"志望理由を書く場面",g:"本校を選んだ理由は、海について学べるからだ。",b:"本校を選んだ理由は、海について学びたいと思った。",why:"「理由は」で始めたら「〜からだ」「〜ためだ」で終えます。"},
+ {k:"nj",ctx:"考えを書く場面",g:"大切なのは、相手の話を最後まで聞くことだ。",b:"大切なのは、相手の話を最後まで聞くと考える。",why:"「大切なのは」に対応するのは「〜ことだ」です。"},
+ {k:"ko",ctx:"理由を書く場面",g:"なぜなら、仲間となら困難も乗り越えられるからだ。",b:"なぜなら、仲間となら困難も乗り越えられる。",why:"「なぜなら」で始めたら、「〜からだ」で受けます。"},
+ {k:"ko",ctx:"体験を書く場面",g:"魚を観察したり、水温を測ったりした。",b:"魚を観察したり、水温を測った。",why:"「〜たり」は「〜たり、〜たり」と二回使います。"},
+ {k:"ko",ctx:"考えを書く場面",g:"もし失敗しても、次に生かせばよい。",b:"もし失敗して、次に生かせばよい。",why:"「もし」で始めたら、「〜ても」「〜たら」で受けます。"}
+];
+
+
+/* ===== 追加データ ===== */
+// 難しい問題（問いが3つ・前置きが長い・条件が多い）
+PROMPTS.push(
+ {id:"z1",label:"難問",chunks:[
+  ["i","近年、水産資源を守るために、とる量の制限や、魚を育てる技術の開発が進められています。"],
+  ["q","このような取り組みの良い点",1],["t","と"],["q","課題",1],["t","を"],["c","それぞれ一つずつ挙げ"],["t","、"],
+  ["q","それについてのあなたの考え",2],["t","を述べなさい。また、"],
+  ["q","本校での学びを、その課題の解決にどのように生かしたいか",3],["t","、"],["c","具体的に"],["c","500字以上600字以内で"],["t","書きなさい。"]]},
+ {id:"z2",label:"難問",chunks:[
+  ["i","本校では、海での実習や寮生活など、仲間と協力する場面が多くあります。"],
+  ["q","あなたがこれまでに仲間と意見が対立した経験",1],["t","を"],["c","一つ挙げ"],["t","、"],
+  ["q","それをどのように解決したか",2],["t","を"],["c","具体的に"],["t","書きなさい。そのうえで、"],
+  ["q","その経験を本校での生活にどのように生かすか",3],["t","を、"],["c","あなたの将来の目標と関連付けて"],["t","、"],["c","500字以上600字以内で"],["t","書きなさい。"]]},
+ {id:"z3",label:"難問",chunks:[
+  ["i","「海に学び、未来を拓く」という本校の教育理念には、海での体験を通して大きく成長してほしいという願いが込められています。"],
+  ["q","あなたが考える「未来を拓く」とはどのようなことか",1],["t","、"],["c","あなた自身の言葉で"],["t","説明しなさい。また、"],
+  ["q","そのために高校三年間で取り組みたいこと",2],["t","を、"],["c","三年間の流れがわかるように"],["t","、"],["c","500字以上600字以内で"],["t","書きなさい。"]]}
+);
+const PTIER={y1:2,y2:2,y3:2,y4:2,y5:2,y6:2,z1:3,z2:3,z3:3};
+const STIER={wa:1,ry:1,nu:1,bm:1,gu:1,tk:1,nj:2,nn:2,ko:2,mn:2,ii:3,nk:3,mu:3};
+
+// 設計図ボス：各段落で一番よい文を3つから選ぶ。o[0]が正解（表示順はシャッフル）
+const PLANS = [
+ {id:"py1",prompt:"y1",steps:[
+  {o:[["私が共同生活で大切にしたいことは、時間を守ることである。一人の遅れが、全員の予定に影響するからだ。",""],
+      ["私は、寮生活がとても楽しみだ。全国から集まる仲間と、同じ屋根の下で過ごせるからである。毎日がにぎやかで、楽しくなりそうだ。","問いに答えていない。「大切にしたいこと」が書かれていない。"],
+      ["共同生活では、大切なことがたくさんあると思う。あいさつや時間、片付けなど、どれも欠かせないからだ。","一つにしぼれていない。"]]},
+  {o:[["中学二年生の修学旅行で、私は班長として集合時間の管理を任された。一日目、班の一人が買い物に夢中になり、集合に十分遅れてしまった。その結果、クラス全員がバスで待つことになった。",""],
+      ["私は毎日、時間を守るように気をつけている。朝は決まった時間に起き、学校にも遅刻したことがない。だから、時間を守ることには自信がある。家に帰ってからも、宿題はすぐに終わらせるようにしている。","「いつ・どこで」の具体的な場面がなく、自慢で終わっている。"],
+      ["中学二年生の修学旅行で、京都の寺をたくさん回った。特に金閣寺は、写真で見るよりもずっと美しく、班のみんなで記念撮影をした。とても楽しい思い出になった。","問いと関係のない感想になっている。"]]},
+  {o:[["そこで二日目は、行動のたびに残り時間を声に出して確認し合った。全員が時間どおりに集合でき、他の班からも感謝された。この経験から、時間を守ることは周りの人を大切にすることだと学んだ。",""],
+      ["遅れた人は、バスに乗るとすぐにみんなに謝り、とても反省していた。先生からも注意を受け、二日目は時間を守っていた。","他の人の話で、自分の学びになっていない。"],
+      ["時間を守らない人がいると、全員が迷惑する。だから、遅れた人には、もっと厳しく注意するべきだと思う。注意されなければ、人はなかなか変わらないからだ。次からは、班長として私がもっと強く言うつもりだ。","人を責める内容で、学びにつながっていない。"]]},
+  {o:[["本校の寮生活では、起床や食事など決まった時間で動く場面が多い。私は五分前行動を心がけ、仲間にも声をかけ合いたい。そうして、全員が気持ちよく過ごせる寮をつくっていきたい。",""],
+      ["本校に入学したら、寮生活でもしっかりがんばりたい。仲間と仲良くし、毎日を楽しく過ごしていきたい。そして、充実した三年間にしたい。先輩や先生の話をよく聞き、寮のルールにも早く慣れたい。","「どのように生かすか」が具体的でない。"],
+      ["以上が、私が共同生活で大切にしたいことです。これからも時間を守ることを忘れずに、毎日を過ごしていきたいと思います。","二つめの問いに答えていない。文末も混ざっている。"]]}]},
+ {id:"py2",prompt:"y2",steps:[
+  {o:[["私が困難を乗り越えた経験は、部活動でレギュラーを外されたことである。この経験から、自分の弱点に向き合う大切さを学んだ。",""],
+      ["私の人生には、困難はあまりなかった。家族や友達に恵まれ、毎日楽しく過ごしてきたからである。","問いに答えられていない。"],
+      ["困難を乗り越えることは、とても大切だと思う。人は困難を経験することで、大きく成長できるからだ。苦しい経験があるからこそ、人の痛みもわかるようになる。","経験を一つ挙げていない。"]]},
+  {o:[["中学二年生の秋、私はバスケットボール部のレギュラーから外された。原因は、試合の後半に体力が続かないことだった。悔しくて、練習に行きたくない日もあった。",""],
+      ["部活動では、いろいろ大変なことがあった。練習は厳しく、試合でもなかなか勝てなかった。それでも、私は三年間続けてきた。特に夏の練習は暑く、何度もやめたいと思った。","「いろいろ」では具体的でない。"],
+      ["私が所属するバスケットボール部の顧問の先生は、とても厳しい人だ。練習中に少しでも気を抜くと、大きな声でしかられる。部員はみんな先生をこわがっている。","自分の経験の中心からずれている。"]]},
+  {o:[["そこで、毎朝二キロのランニングを三か月続けた。冬の大会では再びレギュラーに選ばれ、最後まで走りきることができた。弱点から逃げずに努力すれば、結果は変えられると学んだ。",""],
+      ["その後、冬の大会では、たまたま他の選手がけがをしたため、私が試合に出ることになった。結局、運がよかったのだと思う。試合の結果は、努力よりも運で決まることもあるのだと知った。","学びになっていない。"],
+      ["冬の大会で再びレギュラーに選ばれたときは、本当にうれしかった。家族も友達も、自分のことのように喜んでくれた。","気持ちだけで、学んだことが書かれていない。"]]},
+  {o:[["本校の実習では、体力や技術が必要な場面も多いと思う。できないことがあっても、原因を考え、毎日少しずつ練習を重ねたい。この学びを生かし、どんな困難にも向き合える自分になりたい。",""],
+      ["高校では、できるだけ困難にあわないように気をつけたい。無理をせず、自分にできることだけをして、楽しい三年間を過ごしたい。部活動も勉強も、自分のペースでのんびり続けていくつもりだ。","学びを生かす話になっていない。"],
+      ["以上で、私の作文を終わります。最後まで読んでいただき、ありがとうございました。これからもがんばります。","二つめの問いに答えていない。"]]}]},
+ {id:"py3",prompt:"y3",steps:[
+  {o:[["私が関心をもつ海の問題は、海洋プラスチックごみである。海に流れ出たごみが、生き物の命をうばっているからだ。",""],
+      ["海の問題について、私はまだあまり知らない。だからこそ、本校でいろいろなことを学びたいと思っている。まずは、基本から学んでいくつもりだ。","自信がなく、問いに答えていない。"],
+      ["海には、ごみや水温の上昇、魚の減少など、いろいろな問題がある。どれも大切な問題だと思う。","「一つ挙げ」なのに、一つにしぼれていない。"]]},
+  {o:[["小学六年生のとき、地域の海岸清掃に参加した。一時間で、袋が十個以上いっぱいになった。中には、細かくくだけたプラスチックの破片も多く、拾いきれなかった。",""],
+      ["テレビのニュースで、海のごみ問題が取り上げられているのを見たことがある。世界中で問題になっているそうだ。大変だなと思った。","具体的な場面がない。"],
+      ["小学六年生のとき、地域の海岸清掃に参加した。清掃のあとは、みんなでおにぎりを食べた。海を見ながら食べるおにぎりは、とてもおいしかった。また来年も参加したいと思った。","問題と関係のない感想になっている。"]]},
+  {o:[["調べてみると、細かい破片は魚が食べてしまい、それを人間が食べることもあるとわかった。ごみを拾うだけでなく、海に出さないしくみが必要だと考えた。",""],
+      ["海岸に落ちていたごみを見て、ごみを捨てる人はひどいと思った。自分さえよければいいという考えが許せない。","人を責めるだけで、考えが深まっていない。"],
+      ["しかし、プラスチックはとても便利なので、なくすことはできない。だから、この問題は仕方がないことだと思う。一人ひとりが気をつけても、すぐには変わらないだろう。","問題への考えが前に進んでいない。"]]},
+  {o:[["本校では、海の環境を調べる方法を学び、海岸のごみの量や種類を記録したい。その結果を地域の人に伝え、ごみを減らす活動につなげたい。",""],
+      ["入学後は、部活動や行事など、いろいろなことにチャレンジしたい。友達をたくさん作り、充実した高校生活を送りたい。","海の問題とつながっていない。"],
+      ["海のごみ問題は、とても大きな問題なので、国や大きな会社が解決するべきだと思う。私は、その取り組みを応援したい。自分にできることは少ないと思う。","自分の取り組みになっていない。"]]}]},
+ {id:"py4",prompt:"y4",steps:[
+  {o:[["私は、海を通して世界の人々と協力し、海の資源を守ることに関わりたい。海は国と国をつなぐ、世界共通の財産だからだ。",""],
+      ["私は、これまで外国に行ったことがない。だから、いつか飛行機に乗って、いろいろな国を旅してみたいと思っている。海の向こうには何があるのか、とても気になる。","問いに答えていない。"],
+      ["世界はとても広く、たくさんの国がある。そこには、いろいろな文化をもった人々が暮らしていると思う。","どう関わりたいかが書かれていない。"]]},
+  {o:[["中学校の授業で、日本の近くの海では外国の漁船も漁をしていることを知った。魚は国境に関係なく泳ぐため、一つの国だけでは資源を守れないと先生が話していた。",""],
+      ["私は、中学校の授業の中で、英語の勉強が一番好きだ。単語を覚えるのは大変だが、テストで良い点が取れるとうれしい。","海と世界の話とつながっていない。"],
+      ["外国の料理では、イタリアのパスタが一番好きだ。家族で行くレストランでは、いつもトマトソースのパスタを注文している。将来は、本場のイタリアで食べてみたい。","問いと関係がない。"]]},
+  {o:[["この話から、海の問題を解決するには、国をこえて話し合う力が必要だと考えた。そのためには、海の知識だけでなく、相手に伝える語学力も欠かせない。",""],
+      ["この話を聞いて、外国の漁船が日本の近くで漁をするのはずるいと思った。外国の人が、日本の海を守るべきだと考えた。","一方的で、協力の考えになっていない。"],
+      ["この話を聞いて、海の問題はとてもむずかしいと思った。私には、どうすればよいのかよくわからなかった。もっと大人になってから考えればよいことだと思う。","考えが深まっていない。"]]},
+  {o:[["本校では、水産・海洋の専門知識を学ぶとともに、英語の学習にも力を入れたい。将来は、海の資源を守る国際的な取り組みに参加したい。",""],
+      ["本校では、寮生活を通して、たくさん友達を作りたい。いろいろな地域から来た仲間と、楽しい三年間を過ごしたい。部活動にも入り、休みの日には島の海で泳いでみたい。","「どのような力を身に付けたいか」に答えていない。"],
+      ["ただ、私は英語が苦手なので、将来はあまり英語を使わない仕事に就きたい。日本の中で働ける仕事を探したい。","問いと逆の方向になっている。"]]}]},
+ {id:"py6",prompt:"y6",steps:[
+  {o:[["私は、決まりを守ることが大切なのは、全員が安心して過ごすためだと考える。",""],
+      ["学校には、決まりが多すぎると思う。もっと自由に過ごせたら、学校生活はさらに楽しくなるはずだ。","問いに答えていない。"],
+      ["決まりを守るのは、当たり前のことだ。中学生なら、だれでも知っていることである。","「なぜ大切か」が書かれていない。"]]},
+  {o:[["中学校の理科の実験で、ある班が手順を守らずに薬品を混ぜ、白いけむりが出たことがあった。けが人は出なかったが、授業は中断し、全員が教室の外に出ることになった。",""],
+      ["私は、中学校に入ってから、校則を一度も破ったことがない。服装も髪型も、いつも決まりどおりにしている。先生からも、まじめな生徒だとほめられたことがある。決まりを守るのは、私にとって当たり前のことだ。","体験の場面がない。"],
+      ["中学校の理科の実験は、とてもおもしろい。特に、薬品を混ぜて色が変わる実験は、何度見てもわくわくする。","感想で、問いとずれている。"]]},
+  {o:[["この出来事から、決まりは自分だけでなく、周りの人の安全を守るためにあると学んだ。一人の油断が、大きな事故につながることもある。",""],
+      ["その班の人たちは、あとで先生にひどくしかられた。みんな下を向いて、とても落ちこんでいた。私は、その班でなくて本当によかったと思った。","学びになっていない。"],
+      ["この出来事から、実験はとても危ないと思った。危ない実験は、学校ではやらないほうがいいと思う。","考えがずれている。"]]},
+  {o:[["本校では、海での実習など、命に関わる場面がある。私は、安全の決まりを必ず守り、仲間にも確認の声をかけたい。決まりを守る意味を理解し、信頼される生徒になりたい。",""],
+      ["入学後は、決まりを守るようにしたい。そして、まじめな生徒として三年間を過ごしたい。あいさつや服装など、言われたことはきちんと守る。そうすれば、先生にもしかられないはずだ。","「どのように実践するか」が具体的でない。"],
+      ["本校には、どんな決まりがあるのか気になっている。できれば、決まりが少ない学校生活がいいと思う。","問いと関係がない。"]]}]}
+];
+
+// 本番練習の自己チェック
+const CHECKS = [
+ "書き出しの一文で、一つめの問いに答えた",
+ "段落を4つに分けた（結論・体験・学び・入学後）",
+ "体験に「いつ・どこで・何をした」が入っている",
+ "体験から学んだことを書いた",
+ "二つめの問い（入学後・将来）に、場面と行動まで書いた",
+ "文末を「だ・である」でそろえた",
+ "話し言葉・略語を使っていない",
+ "500字以上600字以内に収まった",
+ "50分以内に書き終えた"
+];
+
+// 段階解放：レベルか日付の早い方で開く（12月の内容は日付でも必ず開く）
+const UNL = [
+ {id:"t2",lv:3,date:"2026-11-15",name:"想定問題と新しい文のルール",desc:"問い分解に想定問題、どっちに「ねじれ文」などが加わる"},
+ {id:"nohint",lv:4,date:"2026-11-22",name:"段落パズル ヒントなし",desc:"段落の役割のヒントが消える"},
+ {id:"plan",lv:5,date:"2026-12-01",name:"設計図ボス",desc:"想定問題に、どんな段落を書くか組み立てる"},
+ {id:"s3",lv:6,date:"2026-12-01",name:"作文を仕上げるルール",desc:"結びの一文、入学後の書き方などが加わり、10問勝負に"},
+ {id:"mock",lv:7,date:"2026-12-10",name:"本番練習（50分）",desc:"原稿用紙に手書きで本番と同じ形式で書く"},
+ {id:"t3",lv:8,date:"2026-12-15",name:"難問",desc:"問いが3つある問題、条件が多い問題が出る"},
+ {id:"sent",lv:9,date:"2026-12-20",name:"文の並べかえ",desc:"段落パズルのあと、体験の段落の文を並べる"}
+];
+const WB_START="2026-12-25", WB_END="2027-01-07", WB_GOAL=3;
+
+// 連続チャレンジのたからもの
+const ITEMS = [
+ {d:2,name:"桜貝",spr:"shell"},{d:3,name:"ほら貝",spr:"conch"},{d:5,name:"シーグラス",spr:"glass"},{d:7,name:"ヒトデ",spr:"star"},
+ {d:10,name:"真珠",spr:"pearl"},{d:14,name:"羅針盤",spr:"compass"},{d:21,name:"望遠鏡",spr:"scope"},{d:30,name:"宝の地図",spr:"map"},
+ {d:45,name:"灯台",spr:"light"},{d:60,name:"金のいかり",spr:"anchor"},{d:80,name:"海王の冠",spr:"crown"}
+];
+
+/* ===== さかな図鑑のデータ =====
+   r:めずらしさ(1〜4) a:すみか z:釣れる大きさ(cm) f:特徴 c:釣り方 e:食べ方（危険な魚はその理由） t:マニアック知識 d:1=危険
+   s:絵の設定 k=体の形 r=体高 b=背の色 u=腹の色 n=ひれの色 p=模様 pc=模様の色 x=特徴パーツ */
+const FISH = [
+ {n:"マアジ",r:1,a:"堤防",z:[15,40],s:{k:"sp",r:.3,b:"#5d7f7c",u:"#eef1f2",n:"#cfc48a",x:["scute"],dor:"two"},
+  f:"体の横に「ぜいご」と呼ばれるトゲのあるうろこが並ぶ。群れで泳ぎ、日本中の海にいる。",
+  c:"堤防からのサビキ釣りが定番。夕方や朝方の「時合い」に群れが回ってくると次々に釣れる。",
+  e:"刺身、たたき、なめろう、アジフライ、南蛮漬け。ぜいごは包丁でそぎ取ってから調理する。",
+  t:"「味が良いからアジ」という説がある。小さい「豆アジ」は骨ごと唐揚げで食べられる。"},
+ {n:"マイワシ",r:1,a:"堤防",z:[10,25],s:{k:"sp",r:.26,b:"#3f6f9a",u:"#f2f5f7",n:"#c9d3dc",p:"dotrow",pc:"#1c2a38"},
+  f:"体の横に黒い点が並び「七つ星」とも呼ばれる。大きな群れで回遊する。",
+  c:"サビキ釣り。群れが来ると鈴なりで釣れるが、来ない年もあり当たり外れが大きい。",
+  e:"刺身、つみれ、梅煮、蒲焼き。鮮度が落ちるのが早いので、釣ったらすぐ氷で冷やす。",
+  t:"漢字の「鰯」は、陸にあげるとすぐ弱ることから。うろこがはがれやすく、手でさばける。"},
+ {n:"カタクチイワシ",r:1,a:"堤防",z:[8,15],s:{k:"sp",r:.22,b:"#2f5e86",u:"#eef3f6",n:"#c9d3dc",x:["bigmouth"]},
+  f:"下あごが小さく、口が大きく見えるのが名前の由来（片口）。",
+  c:"サビキ釣り。マイワシより小さく細長い。",
+  e:"子どもは「しらす」。煮干し、田作り、アンチョビの原料にもなる。",
+  t:"みそ汁のだしに使う煮干しの多くがこの魚。日本の海で特に数が多い魚の一つ。"},
+ {n:"マサバ",r:1,a:"堤防",z:[25,45],s:{k:"sp",r:.26,b:"#2f7a6a",u:"#f1f4f2",n:"#9fb3a8",p:"wavy",pc:"#16334a",dor:"two",x:["finlets"]},
+  f:"背中に黒い波のような模様がある。泳ぐ力が強く、引きが楽しい。",
+  c:"サビキ釣りやメタルジグのルアー。群れに当たると連発する。",
+  e:"しめさば、塩焼き、みそ煮。生で食べるならアニサキス（寄生虫）に注意。釣ったらすぐ内臓を取り、よく冷やす。",
+  t:"「サバを読む（数をごまかす）」は、急いで数えたのが語源という説がある。"},
+ {n:"マハゼ",r:1,a:"堤防",z:[8,20],s:{k:"goby",r:.24,b:"#a8956e",u:"#ece4d2",n:"#c7b48a",p:"mottle",pc:"#6b5a3d",dor:"two"},
+  f:"大きな頭と、吸盤のようにくっついた腹びれをもつ。河口の砂や泥の底にすむ。",
+  c:"秋の「ハゼ釣り」は東京湾の風物詩。のべ竿やちょい投げで、青イソメをエサにする。",
+  e:"天ぷらが定番。大きいものは刺身や甘露煮にも。",
+  t:"多くは一年で一生を終える「年魚」。左右の腹びれが合わさって吸盤になっている。"},
+ {n:"メバル",r:2,a:"堤防",z:[15,30],s:{k:"scorp",r:.36,b:"#5b4a3a",u:"#cfc3a8",n:"#6b5a48",p:"bars",pc:"#3a2e22",eye:1.5,dor:"spiny"},
+  f:"目が大きく張り出しているのが名前の由来（目張）。夜に活発になる。",
+  c:"夜の堤防でワーム（ソフトルアー）を使う「メバリング」が人気。",
+  e:"煮付けが絶品。塩焼き、唐揚げもおいしい。",
+  t:"卵ではなく、お腹の中でかえした子どもを産む（胎生）。「春告魚」とも書く。"},
+ {n:"カサゴ",r:2,a:"堤防",z:[15,30],s:{k:"scorp",r:.38,b:"#a4492e",u:"#e6b98f",n:"#b4583a",p:"mottle",pc:"#6e2c1a",dor:"spiny",tail:"round"},
+  f:"岩のすき間にひそむ根魚。ごつごつした頭と、鋭いトゲのあるひれ。",
+  c:"テトラポッドのすき間に仕掛けを落とす「穴釣り」。ブラクリ仕掛けにサバの切り身などをつける。",
+  e:"唐揚げ、みそ汁、煮付け。だしがよく出る。トゲで手を切らないよう注意。",
+  t:"メバルと同じく子どもを産む。関西では「ガシラ」と呼ぶ。"},
+ {n:"クサフグ",r:1,a:"堤防",d:1,z:[8,20],s:{k:"puffer",r:.55,b:"#5a6b3c",u:"#f4f2ea",n:"#c8c08a",p:"spots",pc:"#e8edd8"},
+  f:"背中に白い点がちらばる小さなフグ。エサをかじり取る「エサ取り」の代表。",
+  c:"釣ろうとしなくても釣れてしまう。ハリスをかみ切られることも多い。",
+  e:"【食べてはダメ】テトロドトキシンという猛毒をもつ。内臓や皮だけでなく、身にも弱い毒がある。フグの調理は免許をもつ人しかできない。",
+  t:"初夏の大潮の夜、波打ちぎわに大群で集まって産卵する。"},
+ {n:"ゴンズイ",r:1,a:"堤防",d:1,z:[10,20],s:{k:"catfish",r:.22,b:"#4a3a2a",u:"#d8cdb8",n:"#5a4a3a",p:"lines",pc:"#e9d36a",x:["barbels"]},
+  f:"体に黄色い線が2本あるナマズの仲間。口にひげがある。",
+  c:"夜の堤防でよく釣れる。素手でさわらず、プライヤーで針を外す。",
+  e:"【トゲに毒】背びれと胸びれのトゲに毒があり、刺されると激しく痛む。死んでも毒は残る。ただし身はおいしく、地方によってはみそ汁や天ぷらで食べる。",
+  t:"幼魚は団子のように集まって泳ぐ「ゴンズイ玉」をつくる。"},
+ {n:"ハオコゼ",r:1,a:"堤防",d:1,z:[5,10],s:{k:"scorp",r:.34,b:"#b5542f",u:"#e8b48a",n:"#c4653a",p:"mottle",pc:"#6e2c1a",dor:"sail",tail:"round"},
+  f:"10cmほどの小さな魚。背びれのトゲに毒がある。",
+  c:"堤防のちょい投げやサビキにまぎれて釣れる。",
+  e:"【トゲに毒】刺されるとひどく痛む。毒はたんぱく質なので、やけどしない程度の熱いお湯（40〜45℃）につけると痛みがやわらぐといわれる。小さいので食用にはしない。",
+  t:"オコゼの仲間だが、高級魚のオニオコゼとは別の魚。"},
+ {n:"ウミタナゴ",r:1,a:"磯",z:[15,25],s:{k:"deep",r:.46,b:"#7b8fa0",u:"#e8ecef",n:"#c79a7a"},
+  f:"平たい体の銀色の魚。海藻の多い岩場に群れる。",
+  c:"ウキ釣りでオキアミやイソメをエサに。引きが意外と強い。",
+  e:"塩焼き、煮付け、唐揚げ。身はやわらかめで、少し水っぽいと感じる人もいる。",
+  t:"お腹の中で子どもを育てて産む胎生の魚。春に子どもを産む。"},
+ {n:"クロダイ",r:2,a:"堤防",z:[25,50],s:{k:"deep",r:.46,b:"#3d4148",u:"#b9bdc2",n:"#2a2d33",p:"bars",pc:"#30343a",dor:"spiny"},
+  f:"黒っぽいタイの仲間。警戒心が強く、上級者のターゲット。",
+  c:"堤防の壁ぎわにカニやイガイを落とす「落とし込み」や、ウキフカセ釣り。",
+  e:"刺身、塩焼き。冬はおいしいが、夏や湾の奥のものは磯臭いことがある。",
+  t:"子どものころはオスで、成長するとメスに変わるものが多い（性転換）。関西では「チヌ」。"},
+ {n:"ボラ",r:1,a:"堤防",z:[30,60],s:{k:"sp",r:.24,b:"#4f6170",u:"#e2e6e8",n:"#8d9aa4",p:"lines",pc:"#7d8d98",dor:"two"},
+  f:"河口や港で大きな群れをつくり、水面からジャンプする。",
+  c:"ウキ釣りなどで。引きはとても強い。",
+  e:"冬の「寒ボラ」は臭みがなく刺身でもおいしい。夏や汚れた水のものは泥臭いといわれる。",
+  t:"成長で名前が変わる出世魚（オボコ→イナ→ボラ→トド）。「とどのつまり」の語源。卵巣は高級品のカラスミになる。"},
+ {n:"アイゴ",r:2,a:"磯",d:1,z:[20,35],s:{k:"deep",r:.42,b:"#7a7a52",u:"#d6d2b4",n:"#8a8a62",p:"spots",pc:"#e8e2c2",dor:"spiny"},
+  f:"海藻を食べる魚。体に白い点があり、ひれのトゲが鋭い。",
+  c:"磯のウキフカセ釣りで、メジナ狙いのときに釣れる。引きがとても強い。",
+  e:"【トゲに毒】背びれ・腹びれ・しりびれのトゲに毒がある。内臓が強烈に臭く、傷つけると身まで臭くなる。上手に処理すれば刺身や干物でおいしい。",
+  t:"関西では「バリ」。沖縄では幼魚の塩辛「スクガラス」が有名。"},
+ {n:"スズキ",r:2,a:"堤防",z:[30,90],s:{k:"sp",r:.27,b:"#56707f",u:"#eef2f4",n:"#9aa8b2",dor:"two",x:["bigmouth"]},
+  f:"大きな口をもつ肉食魚。港や河口のルアー釣りの人気ターゲット「シーバス」。",
+  c:"夜の港や河口でミノーなどのルアー。「エラ洗い」というジャンプでハリを外そうとする。",
+  e:"夏が旬。洗い、刺身、ムニエル、塩焼き。",
+  t:"出世魚（セイゴ→フッコ→スズキ）。エラぶたのふちがカミソリのように鋭いので注意。"},
+ {n:"メジナ",r:2,a:"磯",z:[25,50],s:{k:"deep",r:.46,b:"#2e4a50",u:"#6f8a8e",n:"#2a3f44"},
+  f:"磯釣りの代表的な魚で「グレ」とも呼ばれる。全身が青黒い。",
+  c:"磯からのウキフカセ釣り。オキアミのまきエサで寄せて釣る。",
+  e:"冬は脂がのって刺身が絶品。夏は海藻を食べるので磯臭くなりやすい。",
+  t:"よく似たクロメジナは、エラぶたのふちが黒いことで見分ける。"},
+ {n:"イシダイ",r:3,a:"磯",z:[30,60],s:{k:"deep",r:.52,b:"#e7e3d6",u:"#efe9da",n:"#3a3c40",p:"bars",pc:"#1d1f24",nb:7,dor:"spiny"},
+  f:"白と黒のしま模様。強いあごでサザエやウニをかみくだく「磯の王者」。",
+  c:"磯から、ウニやサザエ、カニをエサにした頑丈な仕掛けで狙う。",
+  e:"刺身、洗い、塩焼き。歯ごたえのある白身。",
+  t:"大きなオスはしま模様が消えて口のまわりが黒くなり「クチグロ」と呼ばれる。"},
+ {n:"ウツボ",r:2,a:"磯",d:1,z:[50,90],s:{k:"eel",r:.13,b:"#6b5a2a",u:"#8a7a3a",n:"#5a4a20",p:"mottle",pc:"#2e2510"},
+  f:"岩穴にひそむウナギのような魚。口を開け閉めしているのは呼吸のため。",
+  c:"磯の穴釣りでかかることがある。鋭い歯でかまれると大けがになるので絶対に手を出さない。",
+  e:"【かまれ注意】身は食べられ、高知県では唐揚げやたたきが名物。皮のゼラチン質がおいしい。",
+  t:"のどの奥にもう一つのあご（咽頭顎）があり、獲物を引き込む。"},
+ {n:"ミノカサゴ",r:2,a:"磯",d:1,z:[20,30],s:{k:"scorp",r:.36,b:"#c4472d",u:"#f3d8c4",n:"#e8b4a0",p:"bars",pc:"#f6efe6",nb:9,dor:"sail",x:["wing"],tail:"round"},
+  f:"大きなひれをドレスのように広げる美しい魚。",
+  c:"磯や堤防でまれに釣れる。トゲに注意してプライヤーで扱う。",
+  e:"【トゲに毒】背びれなどのトゲに毒がある。トゲを落とせば白身はとてもおいしく、刺身や唐揚げにする。",
+  t:"仲間のハナミノカサゴは、大西洋で外来種として増えて問題になっている。"},
+ {n:"カワハギ",r:2,a:"磯",z:[15,30],s:{k:"deep",r:.56,b:"#a59a72",u:"#e3dccb",n:"#c9b98a",p:"mottle",pc:"#7a6c48",x:["horn","tinymouth"]},
+  f:"口が小さく、エサだけ上手に取る「エサ取り名人」。",
+  c:"船や堤防から、アサリのむき身をエサに。小さなアタリを感じ取る繊細な釣り。",
+  e:"肝（肝臓）が絶品で、刺身を肝醤油で食べる。鍋もおいしい。",
+  t:"皮がかたく、はいでから調理するのが名前の由来。"},
+ {n:"ソウシハギ",r:3,a:"磯",d:1,z:[40,75],s:{k:"deep",r:.36,b:"#8c8a6a",u:"#d4cfb8",n:"#a8a080",p:"wiggle",pc:"#3d7fd0",x:["horn","tinymouth"],tail:"round"},
+  f:"青い線と黒い点の模様をもつ、大きなカワハギの仲間。",
+  c:"暖かい海の磯や堤防で、まれに釣れる。",
+  e:"【食べてはダメ】内臓にパリトキシンという強い毒をもつことがあり、食べると筋肉の痛みなどの中毒を起こす。釣れても持ち帰らない。",
+  t:"暖かい海の魚だが、近年は本州の沿岸でも見つかるようになった。"},
+ {n:"ハコフグ",r:2,a:"磯",d:1,z:[15,30],s:{k:"box",r:.5,b:"#d6a43a",u:"#e8c770",n:"#e0b85a",p:"hexdots",pc:"#3b6fd0"},
+  f:"かたい骨の箱に入ったような四角い体。ゆっくり泳ぐ。",
+  c:"磯や堤防でまれに釣れる。",
+  e:"【食べないほうがよい】皮から毒の粘液を出し、肝臓などで中毒の例もある。長崎の五島列島には身をみそと焼く郷土料理があるが、素人は手を出さないこと。",
+  t:"その形が、自動車のデザインの参考にされたことがある。"},
+ {n:"シロギス",r:2,a:"砂浜",z:[15,30],s:{k:"sp",r:.2,b:"#d9c9a6",u:"#f8f4ea",n:"#e6dcc4",dor:"two"},
+  f:"砂浜にすむ細長い白っぽい魚。上品な見た目から「海の女王」。",
+  c:"砂浜からの投げ釣り。ジャリメ（イソメ）をエサに、仕掛けをゆっくり引いてくる。",
+  e:"天ぷらが最高。刺身、塩焼き、昆布じめも。",
+  t:"驚くと砂にもぐって身を隠す。"},
+ {n:"シログチ",r:1,a:"砂浜",z:[20,35],s:{k:"sp",r:.28,b:"#b8bec3",u:"#f2f2f0",n:"#d0c8a8",dor:"two"},
+  f:"「イシモチ」とも呼ばれる銀色の魚。",
+  c:"砂浜や船からの投げ釣り。夜によく釣れる。",
+  e:"塩焼き、フライ。かまぼこの原料としても使われる。",
+  t:"浮き袋をふるわせて「グーグー」と鳴き、それが愚痴のようなので「グチ」。頭に大きな耳石があるので「イシモチ」。"},
+ {n:"ヒラメ",r:3,a:"砂浜",z:[35,80],s:{k:"flat",r:.48,b:"#7a6a52",u:"#7a6a52",n:"#6a5a44",p:"spots",pc:"#4a3c2a"},
+  f:"平たい体で、海底の砂にかくれて獲物を待ち伏せる。両目が体の左側にある。",
+  c:"生きたイワシやアジをエサにする泳がせ釣りや、砂浜からのルアー。",
+  e:"刺身、昆布じめ。ひれの付け根の「えんがわ」は高級。",
+  t:"「左ヒラメに右カレイ」。生まれたときは普通の魚の形で、成長すると片方の目が移動する。"},
+ {n:"マゴチ",r:3,a:"砂浜",z:[35,60],s:{k:"kochi",r:.17,b:"#8a7a5a",u:"#e6dccb",n:"#a08a62",p:"spots",pc:"#4a3f2a",dor:"two"},
+  f:"頭が平たくつぶれた形の魚。砂にまぎれて獲物をねらう。",
+  c:"夏、砂浜や河口でルアーや泳がせ釣り。エラぶたの鋭いトゲに注意。",
+  e:"夏が旬で「照りゴチ」と呼ばれる。洗いや薄造りが絶品。",
+  t:"小さいうちはオスで、大きくなるとメスに変わる。"},
+ {n:"アカエイ",r:2,a:"砂浜",d:1,z:[40,100],s:{k:"ray",b:"#8a5a3a",u:"#e8b48a",n:"#7a4a2a"},
+  f:"ひし形の平たい体と、長い尾をもつ軟骨魚類。",
+  c:"砂浜の投げ釣りでかかることがある。重くて引きが強い。",
+  e:"【尾に毒トゲ】尾のトゲに毒があり、刺されると激痛で病院に行くレベル。身は煮付けや煮こごりで食べる地域もある。時間がたつとアンモニア臭が出る。",
+  t:"サメに近い仲間で、卵ではなく子どもを産む。"},
+ {n:"ホウボウ",r:2,a:"沖（船）",z:[25,40],s:{k:"sp",r:.28,b:"#c4553a",u:"#f3e0d2",n:"#d8826a",x:["wingblue","legs"],dor:"two"},
+  f:"胸びれが青い翼のように広がる。胸びれの一部が足のようになっていて、海底を歩く。",
+  c:"船からのキス釣りやヒラメ釣りでまじって釣れる。",
+  e:"刺身、鍋、ブイヤベース。上品な白身で、だしもよく出る。",
+  t:"浮き袋で「ボーボー」と鳴くのが名前の由来という説がある。"},
+ {n:"マコガレイ",r:2,a:"砂浜",z:[20,40],s:{k:"flat",r:.52,b:"#6e6048",u:"#6e6048",n:"#5e5038",p:"spots",pc:"#4a3e2a",x:["righteye"]},
+  f:"体の右側に両目がある平たい魚。冬の投げ釣りの人気ターゲット。",
+  c:"冬から春、砂浜や堤防からの投げ釣り。イソメをエサに、置き竿で待つ。",
+  e:"煮付け、唐揚げ。大分県の「城下かれい」は有名なブランド。",
+  t:"「左ヒラメに右カレイ」。ヒラメより口が小さい。"},
+ {n:"マダイ",r:3,a:"沖（船）",z:[30,80],s:{k:"deep",r:.44,b:"#e05a5a",u:"#f7d2cf",n:"#e88a88",p:"spots",pc:"#6fc6f0",dor:"spiny"},
+  f:"「魚の王様」。赤い体に青い点が散らばる。",
+  c:"船からのタイラバやコマセ釣り。",
+  e:"刺身、鯛めし、潮汁、塩焼き。どこを食べてもおいしい。",
+  t:"胸びれの付け根の骨の中に、魚の形をした「鯛の鯛」と呼ばれる骨がある。"},
+ {n:"ブリ",r:3,a:"沖（船）",z:[40,100],s:{k:"sp",r:.26,b:"#3c6f8a",u:"#eef3f4",n:"#c8b864",p:"yline",pc:"#e4c64a",dor:"two"},
+  f:"背中が青く、体の横に黄色い線がある大型の回遊魚。",
+  c:"船からのジギングや泳がせ釣り。冬の日本海が有名。",
+  e:"ブリ大根、照り焼き、しゃぶしゃぶ、刺身。冬の「寒ブリ」は脂が多い。",
+  t:"出世魚（関東ではワカシ→イナダ→ワラサ→ブリ）。地域で呼び名がちがう。"},
+ {n:"カツオ",r:3,a:"沖（船）",z:[40,80],s:{k:"sp",r:.3,b:"#1f3d6a",u:"#e8edf2",n:"#5a6a80",p:"bellylines",pc:"#3d4f6a",dor:"two",x:["finlets"],tail:"moon"},
+  f:"流線形の体で高速で泳ぐ。お腹にしま模様がある。",
+  c:"船からの一本釣りが有名。ルアーやエサで狙う。",
+  e:"たたき、刺身。春の「初ガツオ」はさっぱり、秋の「戻りガツオ」は脂がのる。",
+  t:"泳ぎ続けて口から水を取り込まないと呼吸できない。かつお節の原料。"},
+ {n:"タチウオ",r:2,a:"堤防",z:[70,130],s:{k:"ribbon",r:.1,b:"#cfd8de",u:"#eef2f4",n:"#dfe6ea"},
+  f:"刀のような銀色の細長い体。立って泳ぐことからタチウオ。うろこがない。",
+  c:"秋の夜の堤防で、テンヤやワインドのルアー。歯がとても鋭いので注意。",
+  e:"塩焼き、刺身、ムニエル。やわらかい白身。",
+  t:"体の銀色の膜（グアニン）は、昔は模造真珠の材料に使われた。"},
+ {n:"ヒラマサ",r:4,a:"沖（船）",z:[60,150],s:{k:"sp",r:.25,b:"#3d6f7a",u:"#eef3f4",n:"#d8c45a",p:"yline",pc:"#f0d24a",dor:"two"},
+  f:"ブリによく似るが、黄色い線がはっきりしていて、より細長い。",
+  c:"船や磯からのジギング・キャスティング。パワーは青物最強クラス。",
+  e:"刺身が絶品。ブリより脂は少なめで、身がしまっている。",
+  t:"上あごのはしが丸いのがヒラマサ、角ばっているのがブリ。見分けのポイント。"},
+ {n:"アカアマダイ",r:3,a:"沖（船）",z:[30,45],s:{k:"sp",r:.3,b:"#e48a7a",u:"#f7dcd4",n:"#f0b0a0",x:["squarehead"],dor:"long"},
+  f:"四角い頭とピンク色の体。泥の海底に巣穴を掘ってすむ。",
+  c:"船から、オキアミをエサに海底近くを狙う。",
+  e:"京都では「ぐじ」と呼ぶ高級魚。うろこごと焼く「若狭焼き」が名物。",
+  t:"うろこがやわらかく、焼くとサクサクになる。"},
+ {n:"クロマグロ",r:4,a:"沖（船）",z:[100,300],s:{k:"sp",r:.3,b:"#1b2e52",u:"#e3e8ef",n:"#d8c45a",dor:"two",x:["finlets"],tail:"moon"},
+  f:"最大3mにもなる「海のスーパーカー」。高速で長い距離を泳ぐ。",
+  c:"青森県の大間などで一本釣りや、大型の船からのキャスティング。",
+  e:"大トロ、中トロ、赤身。お寿司の主役。",
+  t:"体温を海水よりも高く保つしくみをもつ。泳ぎ続けないと呼吸できない。"},
+ {n:"カンパチ",r:3,a:"沖（船）",z:[40,100],s:{k:"sp",r:.3,b:"#7a6a5a",u:"#ecebe6",n:"#c8b06a",p:"yline",pc:"#d9b84a",x:["hachi"],dor:"two"},
+  f:"頭の上の黒い帯を正面から見ると「八」の字。それで「間八」。",
+  c:"船からの泳がせ釣りやジギング。根に潜ろうとする強い引き。",
+  e:"刺身、しゃぶしゃぶ。ブリより脂が少なく、さっぱり。",
+  t:"ブリ・ヒラマサと並ぶ「ブリ御三家」。"},
+ {n:"キンメダイ",r:3,a:"深海",z:[25,45],s:{k:"deep",r:.44,b:"#d93a2f",u:"#f4a49a",n:"#e8605a",eye:2.1,eyec:"#e8c040",tail:"fork"},
+  f:"大きな金色の目。水深200〜800mほどの深い海にすむ。",
+  c:"船から長い仕掛けを深くまで沈める。伊豆の稲取などが有名。",
+  e:"煮付けが定番。しゃぶしゃぶ、干物も。",
+  t:"目の奥に光を反射する層があり、わずかな光を集める。だから金色に光る。"},
+ {n:"アンコウ",r:3,a:"深海",z:[40,100],s:{k:"angler",b:"#6b5a48",u:"#c9b9a2",n:"#5a4a38",p:"mottle",pc:"#4a3a28"},
+  f:"大きな頭と口。頭のアンテナのような「竿」の先で小魚をおびき寄せる。",
+  c:"深い海の底引き網でとれることが多い。",
+  e:"あんこう鍋。体がやわらかいので吊るして切る「吊るし切り」でさばく。肝は「海のフォアグラ」。",
+  t:"身・皮・肝・胃などを「七つ道具」と呼び、捨てるところがない。"},
+ {n:"アカムツ",r:3,a:"深海",z:[25,40],s:{k:"sp",r:.33,b:"#e05048",u:"#f7c8c2",n:"#e87a70",eye:1.6,dor:"two"},
+  f:"口の中が黒いので「ノドグロ」と呼ばれる高級魚。",
+  c:"船から水深100〜300mほどの深場を狙う。",
+  e:"塩焼き、煮付け、炙り寿司。白身なのにトロのような脂。",
+  t:"日本海側で特に人気が高い。"},
+ {n:"バラムツ",r:4,a:"深海",d:1,z:[100,200],s:{k:"sp",r:.25,b:"#2a2f36",u:"#4a5058",n:"#3a3f46",dor:"two",x:["finlets"]},
+  f:"深い海にすむ大型魚。夜の船釣りでかかる。",
+  c:"深海の夜釣り。かかると大物の強烈な引き。",
+  e:"【食べてはダメ】身の脂の大部分が人間には消化できないワックスで、食べるとお尻から油がもれ出てしまう。日本では食品として売ることが禁止されている。",
+  t:"味だけならトロのようにおいしいといわれる「禁断の魚」。"},
+ {n:"アブラソコムツ",r:3,a:"深海",d:1,z:[80,150],s:{k:"sp",r:.24,b:"#3a3f45",u:"#5d646c",n:"#4a4f56",dor:"two",x:["finlets"]},
+  f:"バラムツによく似た深海魚。",
+  c:"深海の延縄（はえなわ）などでとれる。",
+  e:"【食べてはダメ】バラムツと同じくワックスを多く含み、下痢を起こす。日本では販売禁止。",
+  t:"海外では別の名前で売られて、食中毒が起きたこともある。"},
+ {n:"ラブカ",r:4,a:"深海",z:[100,200],s:{k:"shark",r:.14,b:"#5a4a3a",u:"#7a6a5a",n:"#4a3a2a",x:["frill"]},
+  f:"ウナギのような細長い体のサメ。歯は三つまたのような形。",
+  c:"深い海の底引き網などで、ごくまれにとれる。駿河湾などで見つかる。",
+  e:"一般には食べない。研究のための標本として大切にされる。",
+  t:"大昔からほとんど姿を変えていない「生きた化石」。"},
+ {n:"ミツクリザメ",r:4,a:"深海",z:[100,300],s:{k:"shark",r:.2,b:"#d9a3a3",u:"#efc6c6",n:"#c99090",x:["snout"]},
+  f:"長くつき出した鼻先と、獲物をとるときに飛び出すあごをもつピンク色のサメ。",
+  c:"深海の網にまれにかかる。東京湾の深い所でも見つかっている。",
+  e:"一般には食べない。",
+  t:"英語名は「ゴブリンシャーク（小鬼のサメ）」。"},
+ {n:"オオクチバス",r:2,a:"川・湖",z:[25,55],s:{k:"sp",r:.32,b:"#5b6a3a",u:"#e8e6cf",n:"#7a8a5a",p:"blotchline",pc:"#2f3a1e",dor:"spiny",x:["bigmouth"]},
+  f:"「ブラックバス」。大きな口で小魚やエビを丸のみする北アメリカ原産の魚。",
+  c:"湖や池でのルアー釣り。ワームや水面のルアーなど攻め方が多い。",
+  e:"皮に独特のにおいがあるので、皮を引けば白身のフライや唐揚げでおいしい。",
+  t:"特定外来生物で、生きたまま持ち帰ったり、ほかの場所に放したりすることは法律で禁止されている。"},
+ {n:"ブルーギル",r:1,a:"川・湖",z:[10,20],s:{k:"deep",r:.55,b:"#4f6a5a",u:"#e8b86a",n:"#5a7060",p:"bars",pc:"#3a4a40",x:["earspot"],dor:"spiny"},
+  f:"エラぶたの先に黒い点がある、北アメリカ原産の魚。",
+  c:"池や湖で、小さなハリにミミズなど。とても釣れやすい。",
+  e:"食べられるが小骨が多い。フライや唐揚げ。",
+  t:"特定外来生物。生きたまま運ぶことや放流は法律で禁止されている。"},
+ {n:"ニジマス",r:2,a:"川・湖",z:[25,60],s:{k:"sp",r:.27,b:"#4f6a5a",u:"#f0ecef",n:"#7a8a7a",p:"spots",pc:"#2a2f2a",x:["rainbow"]},
+  f:"体の横に虹色の帯がある。北アメリカ原産で、各地で養殖されている。",
+  c:"管理釣り場（エリアトラウト）で、スプーンなどのルアーやエサで。",
+  e:"塩焼き、ムニエル、燻製。",
+  t:"海に下って大きく育ったものは「スチールヘッド」と呼ばれる。"},
+ {n:"ヤマメ",r:3,a:"川・湖",z:[15,30],s:{k:"sp",r:.25,b:"#7a7a5a",u:"#f0ecdf",n:"#a0a080",p:"parr",pc:"#4a4a6a"},
+  f:"体に小判のような模様（パーマーク）がある「渓流の女王」。",
+  c:"山の渓流でのエサ釣りやルアー。警戒心が強く、気配を消して近づく。",
+  e:"塩焼きが最高。",
+  t:"海に下って大きくなったものが「サクラマス」。同じ種類なのに姿がまったくちがう。"},
+ {n:"アユ",r:3,a:"川・湖",z:[15,25],s:{k:"sp",r:.22,b:"#6f7a5a",u:"#f2efdf",n:"#c8c08a",x:["yspot"]},
+  f:"川の石についたコケを食べる。体からスイカやキュウリのような香りがする「香魚」。",
+  c:"なわばりに入ってきたアユに体当たりさせて掛ける「友釣り」が有名。",
+  e:"塩焼きが定番。内臓ごと食べるほろ苦さが魅力。",
+  t:"多くは一年で一生を終える「年魚」。"},
+ {n:"ニホンウナギ",r:3,a:"川・湖",z:[40,80],s:{k:"eel",r:.1,b:"#3a4a3a",u:"#d8d6b8",n:"#4a5a4a"},
+  f:"細長い体で、夜に活発に動く。",
+  c:"夜の川や河口で、ミミズなどをエサにしたぶっこみ釣り。",
+  e:"蒲焼き。血に毒があるので生では食べない（加熱すると毒はなくなる）。",
+  t:"はるか遠く、マリアナ諸島の近くの海で生まれる。絶滅危惧種に指定されている。"},
+ {n:"ナマズ",r:2,a:"川・湖",z:[30,60],s:{k:"catfish",r:.2,b:"#3d3a2e",u:"#cfc8b0",n:"#4a463a",p:"mottle",pc:"#26241c",x:["barbels","longbarbels"]},
+  f:"平たい頭と長いひげ。夜に獲物を探す。",
+  c:"夜の川や田んぼの水路で、カエルのようなルアーや、エサで。",
+  e:"天ぷら、蒲焼き。白身でくせが少ない。",
+  t:"昔から地震を知らせる魚という言い伝えがある。"},
+ {n:"コイ",r:2,a:"川・湖",z:[30,80],s:{k:"sp",r:.33,b:"#6a5a32",u:"#e8d8a8",n:"#8a7a4a",p:"scales",pc:"#4a3e20",x:["barbels"]},
+  f:"口に2対のひげがある。日本中の川や池にいる。",
+  c:"練りエサを使った吸い込み仕掛けやウキ釣り。大きいものは引きがとても強い。",
+  e:"鯉こく（みそ汁）、甘露煮、洗い。寄生虫がいることがあるので、しっかり加熱するのが安心。",
+  t:"口に歯がなく、のどの奥の「咽頭歯」で貝もかみくだく。"},
+ {n:"リュウグウノツカイ",r:4,a:"伝説",z:[200,500],s:{k:"ribbon",r:.11,b:"#d7dde3",u:"#eef2f5",n:"#e0453c",x:["crest"],p:"spots",pc:"#8a9aa8"},
+  f:"銀色の帯のような長い体に、赤いひれ。深い海にすむ。",
+  c:"釣りではまず出会えない。浜に打ち上げられたり、定置網に入ったりして見つかる。",
+  e:"食べた人の話では、身は水っぽく、味がほとんどしないという。",
+  t:"人魚伝説のもとになったともいわれる。地震の前に現れるという言い伝えもあるが、科学的な根拠はない。"},
+ {n:"シーラカンス",r:4,a:"伝説",z:[100,200],s:{k:"coela",r:.34,b:"#2a4a7a",u:"#3a5a8a",n:"#2a4a7a",p:"spots",pc:"#e8edf2"},
+  f:"4億年前からほぼ姿を変えていない「生きた化石」。ひれが足のような形。",
+  c:"本物は釣ってはいけない魚。国際的な条約で守られている。この図鑑では「出会えた」記録として登録される。",
+  e:"身に油やワックスが多く、食べるとまずくて下痢をするといわれ、現地の漁師も食べなかった。",
+  t:"1938年に南アフリカで発見されるまで、絶滅したと思われていた。"},
+ {n:"マンボウ",r:4,a:"伝説",z:[100,300],s:{k:"sunfish",r:.75,b:"#8a9aa8",u:"#dfe5ea",n:"#7a8a98"},
+  f:"尾びれがなく、大きな背びれとしりびれで泳ぐ。",
+  c:"釣りではなく、定置網に入ることが多い。",
+  e:"食べられる。身は水分が多くあっさり。腸は「コワタ」と呼ばれる珍味。",
+  t:"一度に3億個ほどの卵を産むといわれる。"},
+ {n:"ロウニンアジ",r:4,a:"伝説",d:1,z:[60,170],s:{k:"sp",r:.4,b:"#4a5560",u:"#cfd5da",n:"#3a454f",x:["scute"],dor:"two"},
+  f:"「GT（ジャイアント・トレバリー）」と呼ばれる、南の海の巨大なアジ。",
+  c:"南の島で、大きなポッパー（水面のルアー）を投げる。世界中の釣り人のあこがれ。",
+  e:"【大きいものは注意】暖かい海の大型魚には「シガテラ」という食中毒の毒がたまることがある。地域によっては食べるのを避ける。",
+  t:"アジの仲間で、マアジと同じ「ぜいご」がある。"}
+];
+const RARE={1:"ふつう",2:"ちょっとレア",3:"レア",4:"伝説級"};
+const RW={1:50,2:32,3:14,4:4};
+
+/* ===== 魚の絵（図鑑風イラストをその場で描く） ===== */
+function rng(seed){let a=0;for(const ch of seed)a=(a*31+ch.charCodeAt(0))|0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function fishCanvas(f,w,sil){const c=document.createElement("canvas");const dpr=Math.min(2,window.devicePixelRatio||1);c.width=240*dpr;c.height=120*dpr;c.style.width=w+"px";c.style.height=(w/2)+"px";c.className="fishcv";c.setAttribute("role","img");c.setAttribute("aria-label",sil?"まだ釣っていない魚":f.n);
+ const x=c.getContext("2d");x.scale(dpr,dpr);try{drawFish(x,f,sil)}catch(e){}return c}
+function drawFish(g,f,sil){const s=f.s,R=rng(f.n);const SIL="#5d7890";
+ const col=k=>sil?SIL:k;const back=col(s.b),belly=col(s.u),fin=col(s.n||s.b);const k=s.k;
+ const X0=18,L=204,CY=60,hb=Math.min(46,L*(s.r||.3)/2),X1=X0+L*.8;const fins=a=>{g.fillStyle=fin;g.globalAlpha=sil?1:.85;a();g.globalAlpha=1};
+ const grad=()=>{if(sil)return SIL;const gr=g.createLinearGradient(0,CY-hb,0,CY+hb);gr.addColorStop(0,back);gr.addColorStop(.48,back);gr.addColorStop(.62,belly);gr.addColorStop(1,belly);return gr};
+ const eye=(ex,ey,rr)=>{if(sil)return;g.fillStyle=s.eyec||"#f4f2ea";g.beginPath();g.arc(ex,ey,rr,0,7);g.fill();g.fillStyle="#141414";g.beginPath();g.arc(ex-rr*.1,ey,rr*.62,0,7);g.fill();g.fillStyle="#fff";g.beginPath();g.arc(ex-rr*.35,ey-rr*.3,rr*.22,0,7);g.fill()};
+ const pattern=(clip)=>{if(sil||!s.p)return;g.save();clip();g.clip();g.fillStyle=s.pc;g.strokeStyle=s.pc;const p=s.p;
+  if(p==="bars"){const n=s.nb||6;for(let i=0;i<n;i++){const xx=X0+L*.14+i*(L*.7/n);g.globalAlpha=.75;g.fillRect(xx,CY-hb-10,L*.045,hb*2+20)}}
+  if(p==="lines"){g.globalAlpha=.8;g.lineWidth=3;[-.35,.05].forEach(o=>{g.beginPath();g.moveTo(X0,CY+hb*o);g.lineTo(X0+L,CY+hb*o+2);g.stroke()})}
+  if(p==="spots"){for(let i=0;i<46;i++){g.globalAlpha=.85;g.beginPath();g.arc(X0+L*.12+R()*L*.75,CY-hb+R()*hb*1.6,1.4+R()*2.2,0,7);g.fill()}}
+  if(p==="dotrow"){g.globalAlpha=.9;for(let i=0;i<7;i++){g.beginPath();g.arc(X0+L*.24+i*L*.075,CY-hb*.05+(R()-.5)*3,2.4,0,7);g.fill()}}
+  if(p==="wavy"){g.globalAlpha=.85;g.lineWidth=2.2;for(let i=0;i<11;i++){g.beginPath();const xx=X0+L*.2+i*L*.055;g.moveTo(xx,CY-hb);g.bezierCurveTo(xx+8,CY-hb*.7,xx-6,CY-hb*.4,xx+4,CY-hb*.1);g.stroke()}}
+  if(p==="mottle"){for(let i=0;i<22;i++){g.globalAlpha=.45;g.beginPath();g.ellipse(X0+R()*L*.85,CY-hb+R()*hb*1.7,5+R()*9,3+R()*6,R()*3,0,7);g.fill()}}
+  if(p==="yline"){g.globalAlpha=.95;g.fillRect(X0+L*.08,CY-hb*.12,L*.8,3.5)}
+  if(p==="bellylines"){g.globalAlpha=.7;g.lineWidth=2;for(let i=0;i<4;i++){g.beginPath();g.moveTo(X0+L*.28,CY+hb*(.15+i*.2));g.lineTo(X0+L*.8,CY+hb*(.08+i*.12));g.stroke()}}
+  if(p==="hexdots"){g.globalAlpha=.85;for(let yy=CY-hb;yy<CY+hb;yy+=9)for(let xx=X0;xx<X0+L;xx+=10){g.beginPath();g.arc(xx+((yy/9)%2)*5,yy,1.8,0,7);g.fill()}}
+  if(p==="parr"){g.globalAlpha=.6;for(let i=0;i<8;i++){g.beginPath();g.ellipse(X0+L*.2+i*L*.075,CY-hb*.02,4,hb*.32,0,0,7);g.fill()}g.fillStyle="#2a2a2a";for(let i=0;i<14;i++){g.beginPath();g.arc(X0+L*.15+R()*L*.6,CY-hb*.7+R()*hb*.4,1.3,0,7);g.fill()}}
+  if(p==="blotchline"){g.globalAlpha=.7;for(let i=0;i<10;i++){g.beginPath();g.ellipse(X0+L*.12+i*L*.075,CY-hb*.02+(R()-.5)*4,7,4+R()*3,0,0,7);g.fill()}}
+  if(p==="wiggle"){g.globalAlpha=.9;g.lineWidth=2;for(let i=0;i<14;i++){const xx=X0+L*.1+R()*L*.75,yy=CY-hb*.8+R()*hb*1.5;g.beginPath();g.moveTo(xx,yy);g.quadraticCurveTo(xx+6,yy-5,xx+12,yy+1);g.stroke()}g.fillStyle="#222";for(let i=0;i<16;i++){g.beginPath();g.arc(X0+L*.1+R()*L*.75,CY-hb*.8+R()*hb*1.5,1.6,0,7);g.fill()}}
+  if(p==="scales"){g.globalAlpha=.35;g.lineWidth=1.2;for(let yy=CY-hb;yy<CY+hb;yy+=8)for(let xx=X0+L*.22;xx<X0+L;xx+=9){g.beginPath();g.arc(xx+((yy/8)%2)*4.5,yy,5,-1.4,1.4);g.stroke()}}
+  g.restore()};
+ const shine=(clip)=>{if(sil)return;g.save();clip();g.clip();const gr=g.createLinearGradient(0,CY-hb,0,CY);gr.addColorStop(0,"rgba(255,255,255,0)");gr.addColorStop(.6,"rgba(255,255,255,.18)");gr.addColorStop(1,"rgba(255,255,255,0)");g.fillStyle=gr;g.fillRect(X0,CY-hb*.5,L,hb*.6);g.restore()};
+ const outline=(clip)=>{if(sil)return;g.save();clip();g.strokeStyle="rgba(20,30,40,.35)";g.lineWidth=1;g.stroke();g.restore()};
+
+ /* --- 形が特別な魚 --- */
+ if(k==="eel"||k==="ribbon"){const pts=[];const N=40;for(let i=0;i<=N;i++){const t=i/N;const xx=X0+t*L;const amp=k==="eel"?7:3;const yy=CY+Math.sin(t*Math.PI*2.2)*amp*t;const th=(k==="eel"?hb:hb*1.1)*(t<.08?.7+t*3.5:1-Math.max(0,(t-.5))*1.7);pts.push([xx,yy,Math.max(1.2,th)])}
+  const body=()=>{g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]-p[2]):g.moveTo(p[0],p[1]-p[2]));for(let i=pts.length-1;i>=0;i--)g.lineTo(pts[i][0],pts[i][1]+pts[i][2]);g.closePath()};
+  fins(()=>{g.beginPath();pts.forEach((p,i)=>{if(i<(k==="eel"?6:1))return;g.lineTo(p[0],p[1]-p[2]-(k==="ribbon"&&s.x&&s.x.includes("crest")?7:4))});for(let i=pts.length-1;i>=(k==="eel"?6:1);i--)g.lineTo(pts[i][0],pts[i][1]-pts[i][2]+1);g.fill();
+   if(k==="eel"){g.beginPath();pts.forEach((p,i)=>{if(i<16)return;g.lineTo(p[0],p[1]+p[2]+4)});for(let i=pts.length-1;i>=16;i--)g.lineTo(pts[i][0],pts[i][1]+pts[i][2]-1);g.fill()}});
+  if(s.x&&s.x.includes("crest")&&!sil){g.strokeStyle=s.n;g.lineWidth=2.5;for(let i=0;i<6;i++){g.beginPath();g.moveTo(X0+12+i*2,CY-hb);g.quadraticCurveTo(X0+i*6,CY-hb-30,X0+30+i*10,CY-hb-26-i*2);g.stroke()}g.beginPath();g.moveTo(X0+40,CY+hb);g.quadraticCurveTo(X0+50,CY+hb+18,X0+70,CY+hb+22);g.stroke()}
+  g.fillStyle=grad();body();g.fill();pattern(body);shine(body);outline(body);eye(X0+11,CY-hb*.25,k==="eel"?3.2:4.2);
+  if(!sil){g.strokeStyle="rgba(0,0,0,.4)";g.lineWidth=1.2;g.beginPath();g.moveTo(X0,CY+1);g.lineTo(X0+13,CY+3);g.stroke()}return}
+ if(k==="ray"){const body=()=>{g.beginPath();g.moveTo(X0+20,CY);g.quadraticCurveTo(X0+70,CY-50,X0+115,CY-4);g.lineTo(X0+118,CY+4);g.quadraticCurveTo(X0+70,CY+50,X0+20,CY);g.closePath()};
+  g.strokeStyle=fin;g.lineWidth=3;g.beginPath();g.moveTo(X0+115,CY);g.quadraticCurveTo(X0+165,CY+4,X0+L,CY-6);g.stroke();
+  if(!sil){g.fillStyle="#e8d0b0";g.beginPath();g.moveTo(X0+150,CY+1);g.lineTo(X0+162,CY-3);g.lineTo(X0+158,CY+3);g.fill()}
+  g.fillStyle=grad();body();g.fill();shine(body);outline(body);eye(X0+52,CY-9,3);eye(X0+52,CY+9,3);return}
+ if(k==="sunfish"){const H=52,body=()=>{g.beginPath();g.ellipse(X0+85,CY,70,H*.82,0,0,7)};
+  fins(()=>{g.beginPath();g.moveTo(X0+105,CY-H*.6);g.quadraticCurveTo(X0+125,CY-H*1.25,X0+138,CY-H*1.12);g.lineTo(X0+140,CY-H*.4);g.fill();g.beginPath();g.moveTo(X0+105,CY+H*.6);g.quadraticCurveTo(X0+125,CY+H*1.25,X0+138,CY+H*1.12);g.lineTo(X0+140,CY+H*.4);g.fill();
+   g.beginPath();g.moveTo(X0+150,CY-H*.6);g.quadraticCurveTo(X0+168,CY,X0+150,CY+H*.6);g.lineTo(X0+140,CY);g.fill()});
+  g.fillStyle=grad();body();g.fill();shine(body);outline(body);eye(X0+40,CY-10,5);
+  if(!sil){g.fillStyle="rgba(255,255,255,.25)";for(let i=0;i<20;i++){g.beginPath();g.arc(X0+40+R()*90,CY-30+R()*60,1.5+R()*2,0,7);g.fill()}}return}
+ if(k==="puffer"||k==="box"){const W=k==="box"?120:115,H=hb*1.05;const body=()=>{g.beginPath();if(k==="box"){const r=14;g.roundRect?g.roundRect(X0+20,CY-H,W,H*2,r):g.rect(X0+20,CY-H,W,H*2)}else g.ellipse(X0+20+W/2,CY,W/2,H,0,0,7)};
+  fins(()=>{const tx=X0+20+W;g.beginPath();g.moveTo(tx-6,CY);g.quadraticCurveTo(tx+30,CY-28,tx+38,CY-10);g.quadraticCurveTo(tx+42,CY,tx+38,CY+10);g.quadraticCurveTo(tx+30,CY+28,tx-6,CY);g.fill();
+   g.beginPath();g.moveTo(tx-30,CY-H+4);g.quadraticCurveTo(tx-14,CY-H-18,tx-6,CY-H+8);g.fill();g.beginPath();g.moveTo(tx-30,CY+H-4);g.quadraticCurveTo(tx-14,CY+H+18,tx-6,CY+H-8);g.fill()});
+  g.fillStyle=grad();body();g.fill();pattern(body);shine(body);outline(body);
+  fins(()=>{g.beginPath();g.ellipse(X0+62,CY+4,11,6,-.5,0,7);g.fill()});eye(X0+44,CY-H*.35,5.5);
+  if(!sil){g.fillStyle="#3a2a2a";g.beginPath();g.ellipse(X0+21,CY+4,3,2.5,0,0,7);g.fill()}return}
+
+ /* --- ふつうの魚の形 --- */
+ const peak=k==="scorp"||k==="catfish"||k==="kochi"||k==="angler"?.28:k==="deep"?.38:.42;const mo=k==="catfish"||k==="kochi"||k==="goby"?hb*.15:hb*.05;
+ const flatTop=k==="catfish"||k==="kochi"?.6:1;
+ const body=()=>{g.beginPath();g.moveTo(X0,CY+mo);
+  g.bezierCurveTo(X0+L*.04,CY-hb*.7*flatTop,X0+L*(peak-.12),CY-hb*1.02,X0+L*peak,CY-hb);
+  g.bezierCurveTo(X0+L*(peak+.22),CY-hb*.98,X1-L*.06,CY-hb*.32,X1,CY-hb*.2);
+  g.lineTo(X1,CY+hb*.2);
+  g.bezierCurveTo(X1-L*.06,CY+hb*.38,X0+L*(peak+.18),CY+hb*1.0,X0+L*peak,CY+hb*(k==="kochi"||k==="catfish"?.75:1));
+  g.bezierCurveTo(X0+L*(peak-.14),CY+hb*.98,X0+L*.04,CY+hb*.6,X0,CY+mo);g.closePath()};
+ const tailH=Math.min(46,Math.max(18,hb*1.15));const tail=s.tail||(k==="scorp"||k==="goby"||k==="catfish"||k==="angler"||k==="kochi"||k==="coela"?"round":k==="shark"?"shark":k==="flat"?"round":"fork");
+ if(k==="flat"){const body2=()=>{g.beginPath();g.ellipse(X0+88,CY,82,hb,0,0,7)};
+  fins(()=>{g.beginPath();g.ellipse(X0+90,CY,90,hb+9,0,0,7);g.fill();g.beginPath();g.moveTo(X0+168,CY);g.quadraticCurveTo(X0+200,CY-24,X0+L,CY-14);g.quadraticCurveTo(X0+195,CY,X0+L,CY+14);g.quadraticCurveTo(X0+200,CY+24,X0+168,CY);g.fill()});
+  if(!sil){g.strokeStyle="rgba(0,0,0,.25)";g.lineWidth=.8;for(let a=0;a<6.28;a+=.09){g.beginPath();g.moveTo(X0+90+Math.cos(a)*82,CY+Math.sin(a)*hb);g.lineTo(X0+90+Math.cos(a)*90,CY+Math.sin(a)*(hb+9));g.stroke()}}
+  g.fillStyle=grad();body2();g.fill();pattern(body2);shine(body2);outline(body2);
+  const ry=s.x&&s.x.includes("righteye")?1:-1;eye(X0+26,CY-8*ry*-1-6,4.2);eye(X0+36,CY-14,4.2);
+  if(!sil){g.strokeStyle="rgba(0,0,0,.4)";g.lineWidth=1.3;g.beginPath();g.moveTo(X0+8,CY+6);g.lineTo(X0+22,CY+2);g.stroke()}return}
+ // 尾びれ
+ fins(()=>{g.beginPath();if(tail==="fork"||tail==="moon"){const d=tail==="moon"?.5:.75;g.moveTo(X1-2,CY-hb*.2);g.quadraticCurveTo(X1+L*.08,CY-tailH*.6,X0+L*(tail==="moon"?.99:1),CY-tailH);g.quadraticCurveTo(X1+L*.1*d,CY-tailH*.1,X1+L*.07,CY);g.quadraticCurveTo(X1+L*.1*d,CY+tailH*.1,X0+L*(tail==="moon"?.99:1),CY+tailH);g.quadraticCurveTo(X1+L*.08,CY+tailH*.6,X1-2,CY+hb*.2)}
+  else if(tail==="shark"){g.moveTo(X1-4,CY-hb*.3);g.quadraticCurveTo(X1+L*.1,CY-tailH*.5,X0+L,CY-tailH*.9);g.quadraticCurveTo(X1+L*.12,CY,X1+L*.08,CY+tailH*.4);g.lineTo(X1-4,CY+hb*.3)}
+  else{g.moveTo(X1-2,CY-hb*.22);g.quadraticCurveTo(X0+L*.98,CY-tailH*.95,X0+L,CY);g.quadraticCurveTo(X0+L*.98,CY+tailH*.95,X1-2,CY+hb*.22)}g.fill();
+  if(!sil){g.save();g.globalAlpha=.25;g.strokeStyle="#000";g.lineWidth=.8;for(let i=-4;i<=4;i++){g.beginPath();g.moveTo(X1+2,CY+i*hb*.04);g.lineTo(X0+L*.97,CY+i*tailH*.2);g.stroke()}g.restore()}});
+ // 背びれ・しりびれ
+ const dor=s.dor||(k==="deep"?"spiny":"soft");const top=t=>CY-hb*(1-Math.pow((t-peak)/(t<peak?peak:1-peak),2)*.75);
+ fins(()=>{if(k==="shark"){g.beginPath();g.moveTo(X0+L*.4,top(.4)+2);g.lineTo(X0+L*.47,CY-hb-24);g.lineTo(X0+L*.55,top(.55)+2);g.fill();return}
+  if(dor==="spiny"||dor==="sail"){const a=k==="scorp"?.18:.25,b=.58,n=10,h=dor==="sail"?hb*1.1:hb*.55;g.beginPath();g.moveTo(X0+L*a,top(a)+2);for(let i=0;i<=n;i++){const t=a+(b-a)*i/n;g.lineTo(X0+L*t-2,top(t)-h*(.6+.4*Math.sin(Math.PI*i/n)));g.lineTo(X0+L*t+2,top(t)-h*(.35+.3*Math.sin(Math.PI*i/n)))}
+    g.quadraticCurveTo(X0+L*.68,top(.66)-hb*.55,X0+L*.76,top(.76)+1);g.lineTo(X0+L*a,top(a)+2);g.fill()}
+  else if(dor==="two"){g.beginPath();g.moveTo(X0+L*.3,top(.3)+2);g.quadraticCurveTo(X0+L*.34,top(.33)-hb*.5,X0+L*.44,top(.44)+1);g.fill();g.beginPath();g.moveTo(X0+L*.55,top(.55)+2);g.quadraticCurveTo(X0+L*.58,top(.57)-hb*.4,X0+L*.66,top(.66)+1);g.fill()}
+  else if(dor==="long"){g.beginPath();g.moveTo(X0+L*.25,top(.25)+2);g.quadraticCurveTo(X0+L*.5,CY-hb*1.35,X0+L*.78,top(.78)+1);g.fill()}
+  else{g.beginPath();g.moveTo(X0+L*.36,top(.36)+2);g.quadraticCurveTo(X0+L*.45,CY-hb*1.45,X0+L*.66,top(.66)+1);g.fill()}
+  if(k!=="shark"){g.beginPath();g.moveTo(X0+L*.55,CY+hb*.75);g.quadraticCurveTo(X0+L*.6,CY+hb*1.32,X0+L*.72,CY+hb*.5);g.fill();
+   g.beginPath();g.moveTo(X0+L*.3,CY+hb*.9);g.quadraticCurveTo(X0+L*.33,CY+hb*1.35,X0+L*.4,CY+hb*.95);g.fill()}
+  if(s.x&&s.x.includes("finlets")){for(let i=0;i<5;i++){const xx=X0+L*(.67+i*.025);g.beginPath();g.moveTo(xx,top(.67+i*.025)+2);g.lineTo(xx+3,top(.67+i*.025)-4);g.lineTo(xx+5,top(.67+i*.025)+2);g.fill();g.beginPath();g.moveTo(xx,CY+hb*(.45-i*.05));g.lineTo(xx+3,CY+hb*(.45-i*.05)+5);g.lineTo(xx+5,CY+hb*(.45-i*.05));g.fill()}}
+  if(k==="coela"){[[.3,-1],[.6,-1],[.32,1],[.62,1]].forEach(([t,sg])=>{g.beginPath();g.ellipse(X0+L*t,CY+sg*hb*1.05,9,6,sg*.6,0,7);g.fill()})}});
+ if(s.x&&s.x.includes("crest")){}
+ // 体
+ g.fillStyle=grad();body();g.fill();pattern(body);
+ if(s.x&&s.x.includes("rainbow")&&!sil){g.save();body();g.clip();g.fillStyle="rgba(232,90,130,.45)";g.fillRect(X0+L*.12,CY-hb*.12,L*.72,hb*.35);g.restore()}
+ shine(body);outline(body);
+ const hx=X0+L*(k==="scorp"||k==="angler"?.27:.22);
+ if(!sil){g.strokeStyle="rgba(0,0,0,.28)";g.lineWidth=1.3;g.beginPath();g.moveTo(hx,CY-hb*.75);g.quadraticCurveTo(hx+L*.035,CY,hx,CY+hb*.75);g.stroke();
+  if(k!=="shark"){g.strokeStyle="rgba(0,0,0,.18)";g.lineWidth=1;g.beginPath();g.moveTo(hx+4,CY-hb*.4);g.quadraticCurveTo(X0+L*.5,CY-hb*.55,X1,CY-hb*.05);g.stroke()}
+  if(k==="shark"){g.strokeStyle="rgba(0,0,0,.35)";for(let i=0;i<5;i++){g.beginPath();g.moveTo(X0+L*(.2+i*.025),CY-hb*.35);g.lineTo(X0+L*(.2+i*.025)+2,CY+hb*.35);g.stroke()}}}
+ // 胸びれ
+ fins(()=>{if(s.x&&(s.x.includes("wing")||s.x.includes("wingblue"))){g.save();if(!sil)g.fillStyle=s.x.includes("wingblue")?"#3d8fd8":fin;g.beginPath();g.moveTo(hx+6,CY);for(let i=0;i<=8;i++){const a=-.2+i*.22;g.lineTo(hx+8+Math.cos(a)*hb*1.5,CY+Math.sin(a)*hb*1.4)}g.closePath();g.fill();
+   if(!sil){g.strokeStyle=s.x.includes("wingblue")?"#1d5fa8":"#fff";g.lineWidth=1;for(let i=0;i<=8;i++){const a=-.2+i*.22;g.beginPath();g.moveTo(hx+6,CY);g.lineTo(hx+8+Math.cos(a)*hb*1.5,CY+Math.sin(a)*hb*1.4);g.stroke()}}g.restore()}
+  else{g.beginPath();g.ellipse(hx+L*.06,CY+hb*.22,L*.055,hb*.16,.35,0,7);g.fill()}});
+ // 部品
+ const X=s.x||[];const eyeR=L*.026*(s.eye||1)*(k==="deep"?1.05:1);const ex=X0+L*(k==="catfish"||k==="kochi"?.09:k==="shark"?.1:.085),ey=CY-hb*(k==="catfish"||k==="kochi"?.35:.32);
+ if(!sil){if(X.includes("scute")){g.strokeStyle="rgba(40,50,50,.55)";g.lineWidth=1;for(let i=0;i<22;i++){const xx=X0+L*(.42+i*.017);g.beginPath();g.moveTo(xx,CY-2);g.lineTo(xx+2.5,CY+2);g.stroke()}}
+  if(X.includes("hachi")){g.fillStyle="rgba(40,30,25,.55)";g.beginPath();g.moveTo(X0+L*.04,CY-hb*.55);g.lineTo(X0+L*.16,CY-hb*.98);g.lineTo(X0+L*.18,CY-hb*.85);g.lineTo(X0+L*.07,CY-hb*.42);g.fill()}
+  if(X.includes("earspot")){g.fillStyle="#1a1a1a";g.beginPath();g.ellipse(hx+2,CY-hb*.22,5,4,0,0,7);g.fill()}
+  if(X.includes("yspot")){g.fillStyle="#f0d040";g.beginPath();g.ellipse(hx+12,CY-hb*.1,6,3,0,0,7);g.fill()}
+  if(X.includes("horn")){g.fillStyle=fin;g.beginPath();g.moveTo(X0+L*.18,CY-hb*.92);g.lineTo(X0+L*.21,CY-hb*1.5);g.lineTo(X0+L*.23,CY-hb*.88);g.fill()}
+  if(X.includes("barbels")){g.strokeStyle=back;g.lineWidth=1.8;const len=X.includes("longbarbels")?44:16;[[-1,len],[1,len*.6]].forEach(([sg,l])=>{g.beginPath();g.moveTo(X0+3,CY+mo+sg*2);g.quadraticCurveTo(X0-6,CY+mo+sg*l*.4,X0+l*.3,CY+mo+sg*l*.7);g.stroke()})}
+  if(X.includes("snout")){g.fillStyle=back;g.beginPath();g.moveTo(X0+6,CY-hb*.5);g.lineTo(X0-14,CY-hb*.35);g.lineTo(X0+6,CY-hb*.05);g.fill()}
+  if(X.includes("legs")){g.strokeStyle="#c4553a";g.lineWidth=1.8;for(let i=0;i<3;i++){g.beginPath();g.moveTo(hx+4+i*4,CY+hb*.8);g.lineTo(hx+i*5,CY+hb*1.25);g.stroke()}}
+  if(X.includes("frill")){g.strokeStyle="rgba(0,0,0,.4)";for(let i=0;i<6;i++){g.beginPath();g.moveTo(X0+L*(.12+i*.02),CY-hb*.6);g.lineTo(X0+L*(.12+i*.02),CY+hb*.6);g.stroke()}}
+  if(k==="angler"){g.strokeStyle=back;g.lineWidth=1.8;g.beginPath();g.moveTo(X0+L*.08,CY-hb*.8);g.quadraticCurveTo(X0+L*.05,CY-hb*1.6,X0-2,CY-hb*1.3);g.stroke();g.fillStyle="#f0e8a0";g.beginPath();g.arc(X0-2,CY-hb*1.3,4,0,7);g.fill();
+   g.fillStyle="#f4f0e0";for(let i=0;i<7;i++){g.beginPath();g.moveTo(X0+2+i*5,CY+mo);g.lineTo(X0+4+i*5,CY+mo-5);g.lineTo(X0+6+i*5,CY+mo);g.fill()}}
+  g.strokeStyle="rgba(0,0,0,.45)";g.lineWidth=1.4;g.beginPath();const ml=X.includes("bigmouth")||k==="angler"?.12:X.includes("tinymouth")?.025:.06;g.moveTo(X0+1,CY+mo);g.lineTo(X0+L*ml,CY+mo+(k==="angler"?0:2));g.stroke()}
+ eye(ex,ey,eyeR)}
+
+/* ===== 釣り上げる・図鑑に登録 ===== */
+let CATCH=[];
+function rollFish(minR=1){const L=lvOf(S.xp);let pool=[1,2,3,4].filter(r=>r>=minR&&(r<4||L>=5||minR>=3));
+ let tot=pool.reduce((a,r)=>a+RW[r],0),v=Math.random()*tot,r=pool[0];for(const q of pool){v-=RW[q];if(v<=0){r=q;break}}
+ const list=FISH.filter(f=>f.r===r);const fresh=list.filter(f=>!S.zukan[f.n]);
+ const f=(fresh.length&&Math.random()<.35)?fresh[Math.floor(Math.random()*fresh.length)]:list[Math.floor(Math.random()*list.length)];
+ const z=Math.round(f.z[0]+Math.pow(Math.random(),1.8)*(f.z[1]-f.z[0]));return {f,z}}
+function catchFish(minR,label){const {f,z}=rollFish(minR);const rec=S.zukan[f.n];const isNew=!rec;const big=!isNew&&z>rec.max;
+ S.zukan[f.n]=rec?{n:rec.n+1,max:Math.max(rec.max,z),first:rec.first}:{n:1,max:z,first:ymd()};save();
+ const c={f,z,isNew,big,label};CATCH.push(c);swim(c);return c}
+let swimLane=0;
+const SWIM_MS=3000;
+function swim(c){const el=document.createElement("div");el.className="swim";el.style.top=(30+(swimLane++%3)*15)+"%";
+ el.appendChild(fishCanvas(c.f,150));document.body.appendChild(el);
+ let box=document.querySelector(".catchbars");if(!box){box=document.createElement("div");box.className="catchbars";box.setAttribute("aria-live","polite");document.body.appendChild(box)}
+ const t=document.createElement("div");t.className="catchbar";t.innerHTML=`${c.isNew?'<b>NEW!</b> ':c.big?'<b>記録更新!</b> ':""}${esc(c.f.n)} <small>${c.z}cm</small>${c.f.r>=3?` <span class="st">${"★".repeat(c.f.r)}</span>`:""}`;box.appendChild(t);
+ if(c.isNew||c.f.r>=3)tone(1046,.12,.1,"triangle",.07);setTimeout(()=>el.remove(),SWIM_MS+300);setTimeout(()=>t.remove(),SWIM_MS)}
+const zCount=()=>FISH.filter(f=>S.zukan[f.n]).length;
+const ZMILE=[10,25,40];
+
+/* 魚のくわしい解説 */
+function fishDetail(f,onClose){const rec=S.zukan[f.n];const o=document.createElement("div");o.className="zov";o.setAttribute("role","dialog");
+ const q=encodeURIComponent(f.n);
+ o.innerHTML=`<div class="zcard"><button class="zclose" aria-label="閉じる">×</button>
+  <div class="zpic"></div>
+  <div class="zhead"><h2>${esc(f.n)}</h2><span class="rare r${f.r}">${"★".repeat(f.r)} ${RARE[f.r]}</span></div>
+  <div class="zmeta"><span>すみか：${f.a}</span><span>大きさ：${f.z[0]}〜${f.z[1]}cm</span>${rec?`<span>釣った数：${rec.n}匹</span><span>最大記録：${rec.max}cm</span>`:""}</div>
+  <dl class="zdl"><dt>どんな魚？</dt><dd>${esc(f.f)}</dd><dt>釣り方</dt><dd>${esc(f.c)}</dd>
+  <dt class="${f.d?"danger":""}">${f.d?"⚠ 危険・食べ方":"食べ方"}</dt><dd class="${f.d?"danger":""}">${esc(f.e)}</dd>
+  <dt>マニアック知識</dt><dd>${esc(f.t)}</dd></dl>
+  <a class="zlink" href="https://ja.wikipedia.org/wiki/Special:Search?search=${q}" target="_blank" rel="noopener">本物の写真を見る（Wikipedia）↗</a>
+  <p class="small" style="margin:6px 0 0">絵は特徴をもとに描いたイラストです。</p></div>`;
+ o.querySelector(".zpic").appendChild(fishCanvas(f,300));
+ const close=()=>{o.remove();onClose&&onClose()};o.querySelector(".zclose").onclick=close;o.onclick=e=>{if(e.target===o)close()};document.body.appendChild(o)}
+
+/* 図鑑の画面 */
+function zukan(){view="zukan";const n=zCount();const areas=[...new Set(FISH.map(f=>f.a))];
+ app.innerHTML=`${topbar("さかな図鑑",`${n} / ${FISH.length}種`)}
+ <div class="card"><div class="bar"><i style="width:${n/FISH.length*100}%"></i></div>
+ <p class="small" style="margin:6px 0 0">問題に正解するたびに、魚が1匹釣れます。めずらしい魚ほど出にくく、★4の伝説級はLv.5から出るようになります。ミッション全クリアの日と本番練習では大物が釣れるチャンス。全部そろえると「さかな博士」に認定！</p></div>
+ ${areas.map(a=>`<section><h2 class="zarea">${a}</h2><div class="zgrid">${FISH.filter(f=>f.a===a).map(f=>`<button class="ztile ${S.zukan[f.n]?"got":""}" data-f="${esc(f.n)}"><span class="zt-pic"></span><span class="zt-n">${S.zukan[f.n]?esc(f.n):"？？？"}</span><span class="zt-r r${f.r}">${"★".repeat(f.r)}</span></button>`).join("")}</div></section>`).join("")}`;
+ bindBack();
+ app.querySelectorAll(".ztile").forEach(b=>{const f=FISH.find(x=>x.n===b.dataset.f);b.querySelector(".zt-pic").appendChild(fishCanvas(f,96,!S.zukan[f.n]));
+  b.onclick=()=>{if(S.zukan[f.n])fishDetail(f);else{b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake")}}});
+ window.scrollTo(0,0)}
+
+/* ===== ドット絵（すべてオリジナル） ===== */
+const PAL = {o:"#9ad7ff",w:"#ffffff",k:"#0a1726",b:"#4aa3ff",y:"#ffe08a",r:"#ff6b5e",p:"#ffb3c1",g:"#2f8f5b",G:"#7fd18b",s:"#c9b27a",d:"#6b8fb8",l:"#d9ecff",a:"#ffc845",B:"#3a6fd8",z:"#bfe9ff",
+ h:"#ffd1e3",P:"#ff8fbf",c:"#f0c48a",C:"#b0743e",e:"#8fe8d2",E:"#2fa38c",t:"#ff9a3c",x:"#e8453c",m:"#f6f3ff",M:"#c8c2e6",n:"#c9d3dc",u:"#8a5a2b",q:"#f2d58a",L:"#ffffff",Y:"#ffcf3a"};
+const SPR = {
+ fry:["............","............","............","....ooo.....","..ooooooo..o",".owkooooooo.",".ooooooooo.o","..ooooooo...","....ooo.....","............","............","............"],
+ fish:["............","............","....bbb.....","..bbbbbbb..b",".bwkbbbbbbbb",".bbbbbbbbbb.",".yyyyyyyyy.b","..yyyyyyy..b","....yyy.....","............","............","............"],
+ octo:["....rrrr....","..rrrrrrrr..",".rrrrrrrrrr.",".rwkrrrrwkr.",".rrrrrrrrrr.",".rrrrppprrr.","..rrrrrrrr..",".r.r.rr.r.r.","r..r.r..r..r","r.r..r..r.r.","............","............"],
+ turtle:["............","............","............","....gggg....","..gGGgGGgg..",".gGgGGgGGgG.","skgGGgGGgGGs","ssgggggggggs",".s.s....s.s.","............","............","............"],
+ dolphin:["............","............","........d...",".......dd...","...dddddddd.",".dkdddddddd.","ddlllllldddd","..lllllldd.d","........dddd","..........d.","............","............"],
+ anchor:[".....aa.....","....a..a....",".....aa.....","...aaaaaa...",".....aa.....",".....aa.....",".....aa.....",".a...aa...a.",".aa..aa..aa.","..aaaaaaaa..","....aaaa....","............"],
+ whale:["..z.z.......","...z........","..BBBB......",".BBBBBBBB.BB","BBkBBBBBBBB.","BBBBBBBBBBB.","llllllBBBB..",".llllll.....","............","............","............","............"],
+ shell:["............","....hhhh....","..hPhPhPhh..",".hPhPhPhPhh.",".hPhPhPhPhh.","..hPhPhPhh..","...hPhPhh...","....hhhh....",".....PP.....","............","............","............"],
+ conch:["............",".......cc...",".....ccCcc..","...ccCccCc..","..cCccCcccc.",".cccCcccCcc.","ccccccccCc..",".ccCccccc...","...cccc.....","............","............","............"],
+ glass:["............","............","....eeee....","...eEeeee...","..eeEeeeee..","..eeeEeeee..","...eeeeEe...","....eeee....","............","............","............","............"],
+ star:[".....tt.....",".....tt.....","....tttt....","tttttttttttt",".tttttttttt.","..tttxtttt..","...tttttt...","..ttt..ttt..",".ttt....ttt.",".tt......tt.","............","............"],
+ pearl:["............","....mmmm....","...mwmmmm...","..mwmmmmmM..","..mmmmmmmM..","..mmmmmmMM..","...mmmmMM...","....MMMM....","............","............","............","............"],
+ compass:["....nnnn....","..nnkkkknn..",".nkkkxkkkkn.",".nkkkxxkkkn.","nkkkkxxkkkkn","nkkkkwwkkkkn",".nkkkwwkkkn.",".nkkkwkkkkn.","..nnkkkknn..","....nnnn....","............","............"],
+ scope:["..........YY",".........Yuu","........uuuY",".......uuuY.","......YuuY..",".....uuuY...","....uuuY....","...YuuY.....","..YuuY......","..uu........",".u..u.......","u....u......"],
+ map:["............",".qqqqqqqqqq.",".qquqqqqqqq.",".qqquqqxqxq.",".qqqquqqxqq.",".qqqqquxqxq.",".qqqqqqqqqq.","..qqqqqqqq..","............","............","............","............"],
+ light:[".....YY.....","....kkkk....","....xxxx....","....LLLL....","....xxxx....","...LLLLLL...","...xxxxxx...","...LLLLLL...","..xxxxxxxx..","..LLLLLLLL..",".uuuuuuuuuu.","............"],
+ crown:["............","..Y..Y..Y...","..YY.YY.YY..","..YYYYYYYY..","..YxYYeYYxY.","..YYYYYYYY..","..YYYYYYYY..","............","............","............","............","............"]
+};
+const TITLES = [
+ {lv:1,name:"釣り見習い",spr:"fry"},{lv:3,name:"堤防デビュー",spr:"fish"},{lv:5,name:"磯の釣り人",spr:"octo"},
+ {lv:8,name:"船釣り名人",spr:"turtle"},{lv:11,name:"魚類研究員",spr:"dolphin"},{lv:15,name:"さかな先生",spr:"anchor"},{lv:20,name:"さかな博士",spr:"whale"}
+];
+
+/* ===== 保存 ===== */
+const KEY="sakubun-quest-v1";
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S) S={xp:0,days:{},best:0,sound:true,seen:{}};
+S.srs=S.srs||{};S.zukan=S.zukan||{};S.zmile=S.zmile||[];S.seen=S.seen||{};S.items=S.items||{};S.mock=S.mock||[];S.ann=S.ann||[];
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+const ymd=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+function today(){return S.days[ymd()]||(S.days[ymd()]={})}
+const lvOf=x=>Math.floor(Math.sqrt(x/20))+1;
+const xpFor=l=>20*(l-1)*(l-1);
+const titleOf=l=>TITLES.filter(t=>t.lv<=l).pop();
+const daysLeft=()=>{const t=new Date();t.setHours(0,0,0,0);return Math.max(0,Math.round((EXAM-t)/864e5))};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const md=s=>{const [y,m,d]=s.split("-");return `${+m}月${+d}日`};
+
+/* ===== 段階解放 ===== */
+const isOpen=(id,lv=lvOf(S.xp))=>{const u=UNL.find(x=>x.id===id);return lv>=u.lv||ymd()>=u.date};
+function newUnlocks(){const n=UNL.filter(u=>isOpen(u.id)&&!S.ann.includes(u.id));n.forEach(u=>S.ann.push(u.id));save();return n}
+const tierOK=t=>t===1||(t===2&&isOpen("t2"))||(t===3&&isOpen("t3"));
+
+/* ===== 連続チャレンジ（その日のミッションを全部クリアした日） ===== */
+function missionKeys(){if(!isOpen("plan"))return["tag","puz","bet"];const n=Math.floor(new Date().setHours(0,0,0,0)/864e5);return n%2?["tag","plan","bet"]:["tag","puz","bet"]}
+function streak(){let n=0,d=new Date();if(!(S.days[ymd(d)]||{}).bonus)d.setDate(d.getDate()-1);while((S.days[ymd(d)]||{}).bonus){n++;d.setDate(d.getDate()-1)}return n}
+const nextItem=()=>ITEMS.find(i=>!S.items[i.name]);
+
+/* ===== 効果音 ===== */
+let AC;
+function tone(f,d,t=0,type="square",v=.06){if(!S.sound)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(AC.destination);const s=AC.currentTime+t;o.start(s);g.gain.setValueAtTime(v,s);g.gain.exponentialRampToValueAtTime(.0001,s+d);o.stop(s+d)}catch(e){}}
+const sOK=()=>{tone(660,.08);tone(990,.12,.08)};
+const sNG=()=>tone(160,.25,0,"sawtooth",.05);
+const sLV=()=>[523,659,784,1047].forEach((f,i)=>tone(f,.18,i*.12));
+const sDAY=()=>[392,523,659,784,659,784,1047].forEach((f,i)=>tone(f,.16,i*.11,"triangle",.08));
+
+/* ===== ドット絵の描画 ===== */
+function sprite(name,size,sil){const c=document.createElement("canvas");c.width=c.height=12;c.className="spr";const x=c.getContext("2d");
+ SPR[name].forEach((row,y)=>[...row].forEach((ch,i)=>{if(ch==="."||!PAL[ch])return;x.fillStyle=sil?"#2a4a6a":PAL[ch];x.fillRect(i,y,1,1)}));
+ c.style.width=c.style.height=size+"px";c.setAttribute("role","img");return c}
+function sprBox(name,size,sil){const b=document.createElement("div");b.className="sprbox";b.appendChild(sprite(name,size,sil));return b}
+
+/* ===== XP・コンボ ===== */
+function addXP(n){S.xp+=n;save();const f=document.createElement("div");f.className="xpfloat";f.textContent="+"+n+" XP";document.body.appendChild(f);setTimeout(()=>f.remove(),1000)}
+function combo(n){if(n<3)return;if(n>S.best){S.best=n;save()}
+ const words=n>=10?"止まらない！":n>=7?"すごすぎる！":n>=5?"いいね、その調子！":"ナイス！";
+ const fx=document.createElement("div");fx.className="fx";fx.innerHTML=`<div class="combo"><b>${n} COMBO!</b><small>${words}</small></div>`;
+ document.body.appendChild(fx);tone(880+n*40,.1);tone(1320+n*40,.15,.1);setTimeout(()=>fx.remove(),1250)}
+
+/* ===== 大きな演出（順番に1枚ずつ出す） ===== */
+function playSeq(list){if(!list.length)return;const [make,...rest]=list;const o=document.createElement("div");o.className="ov";o.setAttribute("role","dialog");
+ const box=make();o.appendChild(box);const cols=["#ffc93c","#e8453c","#ffffff","#3ec3b8","#4aa3ff"];
+ for(let i=0;i<26;i++){const c=document.createElement("i");c.className="conf";c.style.left=Math.random()*100+"%";c.style.background=cols[i%5];c.style.animationDelay=Math.random()*.9+"s";o.appendChild(c)}
+ let done=false;const close=()=>{if(done)return;done=true;o.remove();setTimeout(()=>playSeq(rest),150)};
+ o.onclick=close;document.body.appendChild(o)}
+function ovBox(html,spr,sil){const b=document.createElement("div");b.className="ovbox";b.innerHTML=html+`<div class="tap">画面をタップして次へ</div>`;
+ if(spr){const s=sprBox(spr,104,sil);b.insertBefore(s,b.children[1]||null)}return b}
+const ovLevel=(L0,L1)=>()=>{sLV();const t0=titleOf(L0),t1=titleOf(L1);
+ return ovBox(`<div class="big">LEVEL UP!</div><div class="mid">Lv.${L1}</div>${t0!==t1?`<div class="sm">新しい称号「${t1.name}」を手に入れた！</div>`:`<div class="sm">${t1.name}</div>`}`,t1.spr)};
+const ovUnlock=u=>()=>{sLV();return ovBox(`<div class="sm">新しいエリアが開いた！</div><div class="mid">${u.name}</div><div class="sm">${u.desc}</div>`)};
+const ovDay=(st,ni)=>()=>{sDAY();return ovBox(`<div class="big">MISSION<br>COMPLETE!</div>
+ <div class="mid">今日もおつかれさま！</div><div class="pill">${st}日連続チャレンジ成功</div>
+ <div class="sm">明日もやろう！${ni?`あと${ni.d-st}日で「${ni.name}」が手に入るよ。`:""}</div>`)};
+const ovItem=it=>()=>{sLV();return ovBox(`<div class="sm">${it.d}日連続チャレンジ成功！</div><div class="mid">たからもの<br>「${it.name}」</div><div class="sm">を手に入れた！たからばこに入れたよ。</div>`,it.spr)};
+
+/* ===== 復習のしくみ =====
+   一発で正解するたびに★が1つ増え、次に出る日が 1→2→4→7→14日後 と延びる。
+   まちがえると★0に戻り、次の日にまた出る。★4で「マスター」。 */
+const IV=[1,2,4,7,14];
+function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return ymd(d)}
+function grade(k,ok){const r=S.srs[k]||(S.srs[k]={b:0,due:null});if(ok){r.b=Math.min(5,r.b+1);r.due=addDays(IV[Math.min(r.b-1,4)])}else{r.b=0;r.due=addDays(1)}save()}
+const isDue=k=>{const r=S.srs[k];return !!(r&&r.due&&r.due<=ymd())};
+const stars=k=>Math.min(4,(S.srs[k]||{}).b||0);
+function prior(keys){const t=ymd();const sc=k=>{const r=S.srs[k];if(!r||!r.due)return[1,0,"",Math.random()];if(r.due<=t)return[0,0,r.due,Math.random()];return[2,r.b,r.due,Math.random()]};
+ return keys.slice().sort((a,b)=>{const x=sc(a),y=sc(b);for(let i=0;i<4;i++){if(x[i]<y[i])return-1;if(x[i]>y[i])return 1}return 0})}
+const dueCount=keys=>keys.filter(isDue).length;
+const TAGK=()=>PROMPTS.filter(p=>tierOK(PTIER[p.id]||1)).map(p=>"t:"+p.id);
+const PUZK=()=>ESSAYS.map(e=>"p:"+e.id);
+const BETK=()=>Object.keys(SKILLS).filter(k=>tierOK(STIER[k]===3?(isOpen("s3")?1:9):STIER[k])).map(k=>"k:"+k);
+const PLANK=()=>PLANS.map(p=>"l:"+p.id);
+
+/* ===== 画面の共通部品 ===== */
+const app=document.getElementById("app");let view="home",X0=0,T0=null;
+const GAMES={
+ tag:{name:"問い分解クエスト",icon:"？",col:"var(--q)",desc:"問題文の「問い」と「条件」を見分ける",keys:TAGK,start:()=>startTag()},
+ puz:{name:"段落パズル",icon:"▤",col:"var(--signal)",desc:"お手本作文の4段落を正しい順に並べる",keys:PUZK,start:()=>startPuz()},
+ bet:{name:"どっちが良い文？",icon:"A/B",col:"var(--teal)",desc:"作文で使える文を見ぬく",keys:BETK,start:()=>startBet()},
+ plan:{name:"設計図ボス",icon:"図",col:"#7a4cc2",desc:"想定問題に、4段落の中身を組み立てる",keys:PLANK,start:()=>startPlan(),lock:"plan"},
+ mock:{name:"本番練習（50分）",icon:"筆",col:"var(--navy)",desc:"原稿用紙に手書き。終わったら自己チェック",keys:()=>[],start:()=>startMock(),lock:"mock"}
+};
+function topbar(title,prog){return `<div class="top"><button class="back" id="bk">← もどる</button><span class="prog">${prog||""}</span></div><h2>${title}</h2>`}
+let AT=null;const clearAuto=()=>{if(AT){clearTimeout(AT);AT=null}};
+function autoNext(btn){clearAuto();if(!btn)return;btn.classList.add("auto");btn.insertAdjacentHTML("beforeend",'<span style="font-size:12px;display:block;font-family:var(--f-body)">魚が通り過ぎたら自動で進むよ</span>');AT=setTimeout(()=>{AT=null;if(btn.isConnected)btn.click()},SWIM_MS)}
+function bindBack(){document.getElementById("bk").onclick=()=>{clearAuto();stopTimer();home()}}
+function begin(){CATCH=[];X0=S.xp;T0=new Set(UNL.filter(u=>isOpen(u.id)).map(u=>u.id))}
+
+/* ===== ホーム ===== */
+function home(){view="home";const L=lvOf(S.xp),t=titleOf(L),d=today(),mk=missionKeys();
+ const cur=S.xp-xpFor(L),need=xpFor(L+1)-xpFor(L),st=streak(),ni=nextItem();
+ const extra=Object.keys(GAMES).filter(k=>!mk.includes(k));
+ const wbCount=S.mock.filter(m=>m.date>=WB_START&&m.date<=WB_END).length;
+ const showWB=ymd()>="2026-12-01"&&ymd()<=WB_END;
+ app.innerHTML=`
+ <header class="mast"><div><h1>作文フィッシング</h1><div class="sub">さかな先生への道 ― 大島海洋国際高校 推薦作文</div></div><button class="tbtn" id="snd">音 ${S.sound?"ON":"OFF"}</button></header>
+ <section class="card status" aria-label="レベル"><div class="sprbox" id="me"></div><div>
+   <div class="lvrow"><span class="lv">Lv.${L}</span><span class="ttl">${t.name}</span></div>
+   <div class="bar" role="progressbar" aria-valuenow="${cur}" aria-valuemax="${need}"><i style="width:${Math.min(100,cur/need*100)}%"></i></div>
+   <div class="xpnum">つぎのレベルまで あと ${need-cur} XP（合計 ${S.xp} XP）</div></div></section>
+ ${zukanCard()}
+ <section class="meters">
+   <div class="meter exam"><div class="lab">推薦入試 1月26日まで</div><b>${daysLeft()}</b><span class="unit">日</span></div>
+   <div class="meter"><div class="lab">連続チャレンジ成功</div><b>${st}</b><span class="unit">日</span>
+     ${ni?`<div class="next" id="nexti"><span>あと${Math.max(1,ni.d-st)}日で「${ni.name}」</span></div>`:`<div class="next">たからもの全部集めた！</div>`}</div>
+ </section>
+ ${showWB?`<section class="card winter"><h2>冬休み 本番チャレンジ</h2>
+   <div class="small">${md(WB_START)}〜${md(WB_END)}に、本番と同じ50分の手書き練習を${WB_GOAL}回。</div>
+   <div class="dots">${Array.from({length:WB_GOAL},(_,i)=>`<i class="${i<wbCount?"on":""}">${i<wbCount?"✓":i+1}</i>`).join("")}</div>
+   ${isOpen("mock")?"":`<div class="small" style="margin-top:6px">本番練習は ${md(UNL.find(u=>u.id==="mock").date)} に開きます（Lv.7で先に開く）</div>`}</section>`:""}
+ <section class="games" aria-label="今日のミッション">
+   <div class="sec-h"><h2>今日のミッション</h2><span class="small">全部クリアで +50 XP</span></div>
+   ${mk.map(k=>gcard(k,d)).join("")}
+   <p class="small" style="margin:0">まちがえた問題は、その場で別の問題に変えて正解するまで出ます。次の日以降も、身につくまで復習で出ます。</p>
+ </section>
+ <section class="games" aria-label="ほかのトレーニング"><h2>ほかのトレーニング</h2>${extra.map(k=>gcard(k,d)).join("")}</section>
+ <section class="card"><h2>航海ルート</h2><p class="small" style="margin:2px 0 10px">レベルが上がるか、日付が来ると新しいエリアが開きます。</p>
+   <ul class="route">${UNL.map(u=>`<li class="${isOpen(u.id)?"on":""}"><span class="pin"></span><div><div class="rn">${u.name}</div><div class="rd">${isOpen(u.id)?u.desc:`Lv.${u.lv} か ${md(u.date)} で解放`}</div></div></li>`).join("")}</ul></section>
+ ${skillPanel()}
+ <section class="card"><h2>たからばこ</h2><p class="small" style="margin:2px 0 10px">その日のミッションを全部クリアした日が続くと、たからものが手に入ります。</p><div class="shelf" id="items"></div></section>
+ <section class="card"><h2>称号コレクション</h2><div class="shelf" id="shelf" style="margin-top:8px"></div></section>
+ <section class="card"><h2>合格作文の「型」</h2>
+   <ol class="kanten" style="margin-top:6px">
+    <li><b>結論</b>：一つめの問いに、最初の一文で答える</li>
+    <li><b>体験</b>：いつ・どこで・何をしたかを具体的に</li>
+    <li><b>学び</b>：体験から何を学んだか</li>
+    <li><b>入学後・将来</b>：二つめの問いに答え、決意で結ぶ</li></ol>
+   <p class="small" style="margin:8px 0 0">採点の観点：出題を正しく理解しているか／考えを明確に述べているか／筋道が整っているか／言葉の使い方が適切か。50分・500〜600字・200点。</p></section>`;
+ document.getElementById("me").appendChild(sprite(t.spr,60));
+ if(ni)document.getElementById("nexti").prepend(sprite(ni.spr,22,true));
+ const sh=document.getElementById("shelf");
+ TITLES.forEach(x=>{const f=document.createElement("figure");const got=L>=x.lv;f.className=got?"got":"";f.appendChild(sprBox(x.spr,44,!got));const c=document.createElement("figcaption");c.textContent=got?x.name:`？？？ Lv.${x.lv}`;f.appendChild(c);sh.appendChild(f)});
+ const it=document.getElementById("items");
+ ITEMS.forEach(x=>{const f=document.createElement("figure");const got=!!S.items[x.name];f.className=got?"got":"";f.appendChild(sprBox(x.spr,44,!got));const c=document.createElement("figcaption");c.textContent=got?x.name:`？？？ ${x.d}日連続`;f.appendChild(c);it.appendChild(f)});
+ document.getElementById("snd").onclick=()=>{S.sound=!S.sound;save();home()};
+ const zb=document.getElementById("zbtn");if(zb){zb.onclick=zukan;const last=Object.entries(S.zukan).sort((a,b)=>a[1].first<b[1].first?1:-1)[0];const lf=last?FISH.find(f=>f.n===last[0]):FISH[0];document.getElementById("zprev").appendChild(fishCanvas(lf,110,!last))}
+ app.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{const g=GAMES[b.dataset.g];if(g.lock&&!isOpen(g.lock))return;g.start()});
+ window.scrollTo(0,0)}
+function zukanCard(){const n=zCount();return `<button class="card zcardbtn" id="zbtn"><span id="zprev"></span><span><span class="gname">さかな図鑑</span><br><b class="zn">${n}</b><span class="small"> / ${FISH.length}種</span><div class="bar" style="margin-top:4px"><i style="width:${n/FISH.length*100}%"></i></div><span class="small">正解するたびに魚が釣れる</span></span></button>`}
+function gcard(k,d){const g=GAMES[k];const locked=g.lock&&!isOpen(g.lock);const rev=locked?0:dueCount(g.keys());
+ const isNew=!locked&&g.lock&&!S.seen["open_"+k];
+ const st=locked?`<span class="check">LOCK</span>`:d[k]?`<span class="check on">CLEAR</span>`:rev?`<span class="check rev">復習 ${rev}</span>`:`<span class="check">未</span>`;
+ const u=g.lock&&UNL.find(x=>x.id===g.lock);
+ return `<button class="gcard ${locked?"locked":""}" data-g="${k}" ${locked?'aria-disabled="true"':""}><span class="gicon" style="background:${g.col}">${g.icon}</span><span><span class="gname">${g.name}</span>${isNew?'<span class="newbadge">NEW</span>':""}<br><span class="gdesc">${locked?`Lv.${u.lv} か ${md(u.date)} で解放`:g.desc}</span></span>${st}</button>`}
+function skillPanel(){const list=[["s:tag","問いと条件を見分ける"],["s:puz","段落の組み立て"],...(isOpen("plan")?[["s:plan","設計図づくり"]]:[]),...BETK().map(k=>[k,SKILLS[k.slice(2)]])];
+ const m=list.filter(([k])=>stars(k)>=4).length;
+ return `<section class="card"><div class="sec-h"><h2>身についた力</h2><span class="small">マスター ${m} / ${list.length}</span></div>
+ <p class="small" style="margin:2px 0 8px">一発で正解すると★が1つ増え、次の復習までの日数が延びます。まちがえると★0に戻り、次の日にまた出ます。★4つでマスター。</p>
+ <ul class="skills">${list.map(([k,v])=>{const n=stars(k);return `<li><span>${v}${isDue(k)?' <span class="duemark">今日復習</span>':""}</span><span class="pips" aria-label="★${n}">${[0,1,2,3].map(i=>`<i class="${i<n?"on":""}"></i>`).join("")}${n>=4?'<b class="mst">MASTER</b>':""}</span></li>`}).join("")}</ul></section>`}
+
+/* ===== 問い分解クエスト ===== */
+let T;
+const promptOf=k=>PROMPTS.find(p=>"t:"+p.id===k);
+function startTag(){begin();const ks=prior(TAGK()).slice(0,3);
+ T={list:ks.map(k=>({p:promptOf(k),retry:false,due:isDue(k)})),used:new Set(ks),i:0,mode:"q",gained:0,first:0,combo:0,retries:0};tagQ()}
+function tagQ(){view="tag";const it=T.list[T.i],p=it.p;T.marks=p.chunks.map(()=>null);T.mode="q";T.done=false;const hard=PTIER[p.id]===3;
+ app.innerHTML=`${topbar("問い分解クエスト",`${T.i+1} / ${T.list.length}`)}
+ <div class="tags"><span class="tag ${p.past?"past":hard?"hard":""}">${p.label}</span>${it.retry?'<span class="tag retry">やり直し：別の問題で</span>':it.due?'<span class="tag rev">復習</span>':""}</div>
+ <div class="rule"><b style="color:var(--q)">青ペン＝問い</b>：<b>何について</b>答えるか。テーマや「なぜ〜か」「どのように〜か」。<br><b style="color:var(--cond)">黄ペン＝条件</b>：<b>どう</b>答えるか。「一つ挙げ」「一つ選び」「説明して」「体験をふまえて」「具体的に」「字数」など。<br>前置きの文には印を付けない。点線の部分だけタップできるよ。${hard?"<br><b style='color:var(--signal)'>難問：問いが3つあるかも！</b>":""}</div>
+ <div class="modes" role="group" aria-label="ペン">
+  <button class="mode mq" data-m="q" aria-pressed="true">青ペン 問い</button>
+  <button class="mode mc" data-m="c" aria-pressed="false">黄ペン 条件</button>
+  <button class="mode mn" data-m="n" aria-pressed="false">消しゴム</button></div>
+ <div class="sheet"><b>【問】</b> ${p.chunks.map((c,i)=>c[0]==="t"?`<span class="glue">${esc(c[1])}</span>`:`<span class="chunk" role="button" tabindex="0" data-i="${i}">${esc(c[1])}</span>`).join("")}</div>
+ <p class="small" style="margin:0">※「書き出しや改行の空欄、句読点も字数に数える」という注意書きは毎年同じなので省略しています。</p>
+ <button class="bigbtn" id="judge">判定する</button><div id="fb"></div>`;
+ bindBack();
+ app.querySelectorAll(".mode").forEach(b=>b.onclick=()=>{T.mode=b.dataset.m;app.querySelectorAll(".mode").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+ app.querySelectorAll(".chunk").forEach(b=>{b.onclick=()=>{if(T.done)return;const i=+b.dataset.i;const m=T.mode==="n"?null:(T.marks[i]===T.mode?null:T.mode);T.marks[i]=m;b.className="chunk"+(m==="q"?" sq":m==="c"?" sc":"");tone(m?520:300,.05)};
+  b.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();b.click()}}});
+ document.getElementById("judge").onclick=tagJudge}
+function tagJudge(){clearAuto();if(T.done){T.i++;if(T.i<T.list.length)return tagQ();grade("s:tag",T.retries===0);
+  return finish("tag",T.gained,`${T.list.length-T.retries}問中 ${T.first}問 一発パーフェクト`+(T.retries?`／やり直し ${T.retries}問クリア`:""))}
+ const it=T.list[T.i],p=it.p;T.done=true;let ok=0;
+ const tap=[...app.querySelectorAll(".chunk")];tap.forEach(b=>{const i=+b.dataset.i;const want=p.chunks[i][0]==="i"?null:p.chunks[i][0];const r=T.marks[i]===want;if(r)ok++;
+  b.classList.add(r?"right":"wrong");b.insertAdjacentHTML("beforeend",`<span class="mark" style="color:${r?"var(--ok)":"var(--ng)"}">${r?"○":"×"}</span>`)});
+ const n=tap.length,all=ok===n;const cs=p.chunks.filter(c=>c[0]==="c");
+ const groups={};p.chunks.forEach(c=>{if(c[0]==="q")(groups[c[2]]=groups[c[2]]||[]).push(c[1])});const qs=Object.keys(groups).sort().map(k=>groups[k].join(" … "));
+ let xp=ok*4+(PTIER[p.id]===3?10:0);grade("t:"+p.id,all);
+ if(all){xp+=15;if(!it.retry)T.first++;T.combo++;sOK();combo(T.combo);catchFish()}
+ else{T.combo=0;sNG();const pool=prior(TAGK());const nk=pool.filter(k=>!T.used.has(k))[0]||pool.filter(k=>k!=="t:"+p.id)[0];T.used.add(nk);T.list.push({p:promptOf(nk),retry:true});T.retries++}
+ T.gained+=xp;addXP(xp);
+ const how=qs.length>=3?"問いが3つのときは、問い①を段落1、問い②を段落2〜3（体験と考え）、問い③を段落4で答える。":"組み立て方：問い①は段落1〜3（結論→体験→学び）で、問い②は段落4で答える。";
+ document.getElementById("fb").innerHTML=`<div class="fb ${all?"good":"bad"}"><h3>${all?"パーフェクト！":`${n}つ中 ${ok}つ正解`}</h3>
+  <div>答えるべき問いは <b>${qs.length}つ</b>：</div><ol>${qs.map(c=>`<li class="qli">${esc(c)}</li>`).join("")}</ol>
+  <div>答え方の条件：</div><ul>${cs.map(c=>`<li class="cli">${esc(c[1])}</li>`).join("")}</ul>
+  <div class="small">${how}${cs.some(c=>c[1].includes("体験"))?"「体験をふまえて」とあるので、体験の段落は必ず入れること。":""}</div>
+  ${all?"":`<div class="again">別の問題でもう一度！パーフェクトになるまで続くよ。この問題は明日も出るよ。</div>`}</div>`;
+ const j=document.getElementById("judge");j.textContent=!all?"別の問題でやり直す":T.i+1<T.list.length?"つぎの問題へ":"結果を見る";
+ j.scrollIntoView({block:"nearest",behavior:"smooth"});if(all)autoNext(j)}
+
+/* ===== 段落パズル ===== */
+let P;
+const essayOf=k=>ESSAYS.find(e=>"p:"+e.id===k);
+function startPuz(){begin();P={used:new Set(),gained:0,retries:0,count:0};puzNew(false)}
+function puzNew(retry){const k=prior(PUZK()).filter(k=>!P.used.has(k))[0]||prior(PUZK())[0];P.used.add(k);
+ P.e=essayOf(k);P.due=isDue(k);P.next=0;P.m=0;P.retry=retry;P.count++;P.order=shuffle([0,1,2,3]);puzDraw()}
+function puzDraw(){view="puz";const e=P.e,pr=PROMPTS.find(p=>p.id===e.prompt);const hint=!isOpen("nohint");
+ app.innerHTML=`${topbar("段落パズル",`まちがい ${P.m}`)}
+ <div class="tags"><span class="tag ${pr.past?"past":""}">${pr.label}</span>${P.retry?'<span class="tag retry">やり直し：別の作文で</span>':P.due?'<span class="tag rev">復習</span>':""}<span class="small">${esc(e.title)}</span></div>
+ <div class="sheet" style="font-size:14px;line-height:1.9;background-image:none"><b>【問】</b> ${pr.chunks.map(c=>esc(c[1])).join("")}</div>
+ <p class="howto">下のカードを、作文の<b>はじめから順に</b>タップしよう。${hint?"":"（ヒントなしモード）"}</p>
+ <div class="slots">${[0,1,2,3].map(i=>i<P.next?`<div class="slot filled"><span class="role">${ROLES[i]}</span>${esc(e.paras[i])}</div>`:`<div class="slot">第${i+1}段落 ${i===P.next?(hint?`← ヒント：${ROLES[i].slice(2)}`:"← ここに入るのは？"):""}</div>`).join("")}</div>
+ ${P.next<4?`<div class="pool">${P.order.filter(i=>i>=P.next).map(i=>`<button class="pcard" data-i="${i}">${esc(e.paras[i])}</button>`).join("")}</div>`:puzDone()}`;
+ bindBack();
+ app.querySelectorAll(".pcard").forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(i===P.next){sOK();P.next++;puzDraw();if(P.next===4)puzFinish()}else{P.m++;sNG();b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake");app.querySelector(".prog").textContent="まちがい "+P.m}})}
+function puzDone(){const e=P.e;const lens=e.paras.map(t=>t.length+1);const tot=lens.reduce((a,b)=>a+b,0);const cols=["var(--q)","var(--signal)","var(--teal)","#c99400"];
+ const sent=!P.m&&isOpen("sent");
+ return `<div class="fb ${P.m?"bad":"good"}"><h3>${P.m===0?"ノーミス完成！":`完成！（まちがい ${P.m}回）`}</h3>
+ <div>段落ごとの字数（書き出しの一マスを含む・改行の空きマスは除く）</div>
+ <div class="gauge" aria-label="字数配分">${lens.map((l,i)=>`<span style="width:${l/650*100}%;background:${cols[i]}">${l}</span>`).join("")}<i class="lim" style="left:${600/650*100}%"></i></div>
+ <div class="legend"><span>0</span><span>合計 約${tot}字</span><span>600</span></div>
+ <ul style="margin-top:8px">${ROLES.map((r,i)=>`<li><b style="color:${cols[i]}">${r}</b> 約${lens[i]}字</li>`).join("")}</ul>
+ <div class="small">結論（①）は100字前後で短く、②〜④はそれぞれ150字前後。この配分を覚えておこう。お手本は自分の体験に置きかえて使うこと。</div>
+ ${P.m?`<div class="again">別の作文でもう一度！ノーミスで完成するまで続くよ。この作文は明日も出るよ。</div>`:""}</div>
+ <button class="bigbtn" id="pend">${P.m?"別の作文でやり直す":sent?"ボーナス：体験の段落の文を並べる":"結果を見る"}</button>`}
+function puzFinish(){const xp=P.m===0?45:Math.max(15,45-P.m*8);P.gained+=xp;addXP(xp);grade("p:"+P.e.id,P.m===0);catchFish();if(!P.m)setTimeout(()=>catchFish(),700);
+ const end=()=>{grade("s:puz",P.retries===0);finish("puz",P.gained,P.retries?`${P.count}本目でノーミス完成`:"一発ノーミス完成")};
+ if(P.m){P.retries++;document.getElementById("pend").onclick=()=>puzNew(true)}
+ else{combo(3);document.getElementById("pend").onclick=isOpen("sent")?()=>sentStart(end):end}}
+// 文の並べかえ（体験の段落）
+let Q;
+function sentStart(end){const ss=P.e.paras[1].split("。").filter(Boolean).map(s=>s+"。");Q={ss,next:0,m:0,order:shuffle(ss.map((_,i)=>i)),end};sentDraw()}
+function sentDraw(){view="sent";app.innerHTML=`${topbar("文の並べかえ",`まちがい ${Q.m}`)}
+ <p class="howto">体験の段落（第2段落）の文を、正しい順に並べよう。「いつ→何が起きた→どうした」の流れを考えると解けるよ。</p>
+ <div class="slots">${Q.ss.map((s,i)=>i<Q.next?`<div class="slot filled">${esc(s)}</div>`:`<div class="slot">${i+1}文目</div>`).join("")}</div>
+ ${Q.next<Q.ss.length?`<div class="pool">${Q.order.filter(i=>i>=Q.next).map(i=>`<button class="pcard" data-i="${i}">${esc(Q.ss[i])}</button>`).join("")}</div>`:`<div class="fb good"><h3>${Q.m?"完成！":"ノーミス！"}</h3>体験は「時」→「出来事」→「自分の行動」の順に書くと、読む人にわかりやすくなります。</div><button class="bigbtn" id="send">結果を見る</button>`}`;
+ bindBack();
+ app.querySelectorAll(".pcard").forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(i===Q.next){sOK();Q.next++;sentDraw();if(Q.next===Q.ss.length){const xp=Q.m?10:20;P.gained+=xp;addXP(xp);catchFish();document.getElementById("send").onclick=Q.end}}else{Q.m++;sNG();b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake");app.querySelector(".prog").textContent="まちがい "+Q.m}})}
+
+/* ===== どっちが良い文？ ===== */
+let B;
+function pickVar(k,used){const v=PAIRS.map((p,i)=>({...p,i})).filter(p=>p.k===k);const c=v.filter(p=>!used.has(p.i));
+ return shuffle(c.length?c:v).sort((a,b)=>(S.seen["b"+a.i]||0)-(S.seen["b"+b.i]||0))[0]}
+function startBet(){begin();const used=new Set();const n=isOpen("s3")?10:8;const ks=prior(BETK()).slice(0,n);
+ const list=shuffle(ks).map(kk=>{const p=pickVar(kk.slice(2),used);used.add(p.i);return {...p,retry:false,due:isDue(kk)}});
+ B={list,i:0,ok:0,combo:0,gained:0,used,retries:0};betQ()}
+function betQ(){view="bet";const p=B.list[B.i];const flip=Math.random()<.5;B.flip=flip;const A=flip?p.b:p.g,Bb=flip?p.g:p.b;
+ app.innerHTML=`${topbar("どっちが良い文？",`${B.i+1} / ${B.list.length}`)}
+ <div class="tags"><span class="tag">${SKILLS[p.k]}</span>${p.retry?'<span class="tag retry">やり直し：別の問題で</span>':p.due?'<span class="tag rev">復習</span>':""}</div>
+ <div class="ctx">${esc(p.ctx)}</div>
+ <p class="howto">作文に書くなら、どっち？</p>
+ <div class="choices"><button class="choice" data-c="0"><span class="ab">A</span><span>${esc(A)}</span></button><button class="choice" data-c="1"><span class="ab">B</span><span>${esc(Bb)}</span></button></div>
+ <div id="fb"></div>`;bindBack();
+ app.querySelectorAll(".choice").forEach(b=>b.onclick=()=>betAns(+b.dataset.c))}
+function betAns(c){const p=B.list[B.i];const goodIdx=B.flip?1:0;const ok=c===goodIdx;S.seen["b"+p.i]=(S.seen["b"+p.i]||0)+1;
+ const bs=app.querySelectorAll(".choice");bs.forEach((b,i)=>{b.disabled=true;if(i===goodIdx)b.classList.add("right");else if(i===c)b.classList.add("wrong")});
+ if(!p.retry)grade("k:"+p.k,ok);
+ if(ok){if(!p.retry)B.ok++;B.combo++;const xp=(p.retry?5:10)+Math.min(10,(B.combo-1)*2);B.gained+=xp;addXP(xp);sOK();combo(B.combo);catchFish()}
+ else{B.combo=0;sNG();const v=pickVar(p.k,B.used);B.used.add(v.i);B.list.push({...v,retry:true});B.retries++}
+ document.getElementById("fb").innerHTML=`<div class="fb ${ok?"good":"bad"}"><h3>${ok?"正解！":"ざんねん"}</h3>${esc(p.why)}
+  ${ok?"":`<div class="again">「${SKILLS[p.k]}」の別の問題が、このあともう一度出るよ。明日の復習にも出るよ。</div>`}</div>
+  <button class="bigbtn" id="nx" style="margin-top:10px">${B.i+1<B.list.length?"つぎへ":"結果を見る"}</button>`;
+ document.getElementById("nx").onclick=()=>{clearAuto();B.i++;if(B.i<B.list.length)betQ();else{const first=B.list.length-B.retries;let bonus=B.retries===0?30:0;if(bonus){B.gained+=bonus;S.xp+=bonus;save()}
+  finish("bet",B.gained,`${first}問中 ${B.ok}問 一発正解`+(B.retries?`／やり直し ${B.retries}問クリア`:""),bonus?"全問一発正解ボーナス +30 XP":"")}};
+ document.getElementById("nx").scrollIntoView({block:"nearest",behavior:"smooth"});if(ok)autoNext(document.getElementById("nx"))}
+
+/* ===== 設計図ボス ===== */
+let G;
+const planOf=k=>PLANS.find(p=>"l:"+p.id===k);
+function startPlan(){begin();S.seen.open_plan=1;save();G={used:new Set(),gained:0,retries:0,count:0};planNew(false)}
+function planNew(retry){const k=prior(PLANK()).filter(k=>!G.used.has(k))[0]||prior(PLANK())[0];G.used.add(k);
+ G.p=planOf(k);G.due=isDue(k);G.s=0;G.m=0;G.retry=retry;G.count++;G.picked=[];planDraw()}
+function planDraw(){view="plan";const pl=G.p,pr=PROMPTS.find(p=>p.id===pl.prompt);
+ if(G.s>=4)return planDone();
+ const step=pl.steps[G.s];G.ord=shuffle([0,1,2]);
+ app.innerHTML=`${topbar("設計図ボス",`段落 ${G.s+1} / 4`)}
+ <div class="tags"><span class="tag">${pr.label}</span>${G.retry?'<span class="tag retry">やり直し：別の問題で</span>':G.due?'<span class="tag rev">復習</span>':""}</div>
+ <div class="sheet" style="font-size:14px;line-height:1.9;background-image:none"><b>【問】</b> ${pr.chunks.map(c=>esc(c[1])).join("")}</div>
+ <div class="slots">${[0,1,2,3].map(i=>i<G.s?`<div class="slot filled"><span class="role">${ROLES[i]}</span>${esc(pl.steps[i].o[0][0])}</div>`:i===G.s?`<div class="slot" style="border-color:var(--signal);color:var(--ink)"><b>${ROLES[i]}</b> に書くのは？</div>`:"").join("")}</div>
+ <div class="choices">${G.ord.map((oi,n)=>`<button class="choice" data-o="${oi}"><span class="ab">${"ABC"[n]}</span><span>${esc(step.o[oi][0])}</span></button>`).join("")}</div>`;
+ bindBack();
+ app.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{const oi=+b.dataset.o;if(oi===0){sOK();G.s++;catchFish();planDraw()}
+  else{if(b.disabled)return;G.m++;sNG();b.disabled=true;b.classList.add("wrong","shake");b.insertAdjacentHTML("beforeend",`<span class="why">× ${esc(step.o[oi][1])}</span>`);app.querySelector(".prog").textContent=`段落 ${G.s+1} / 4　まちがい ${G.m}`}})}
+function planDone(){const xp=G.m===0?60:Math.max(20,60-G.m*10);G.gained+=xp;addXP(xp);grade("l:"+G.p.id,G.m===0);
+ const pl=G.p;const tot=pl.steps.reduce((a,s)=>a+s.o[0][0].length+1,0);
+ app.innerHTML=`${topbar("設計図ボス","完成")}
+ <div class="fb ${G.m?"bad":"good"}"><h3>${G.m?`設計図 完成！（まちがい ${G.m}回）`:"ボス撃破！ノーミスで設計図完成"}</h3>
+ <div class="small">できあがった設計図（約${tot}字）。本番では、この骨組みに体験の様子や考えを書き足して500〜600字にする。自分の体験に置きかえて使おう。</div></div>
+ <div class="sheet" style="font-size:15px;background-image:none">${pl.steps.map(s=>"　"+esc(s.o[0][0])).join("<br>")}</div>
+ ${G.m?`<div class="again">別の問題でもう一度！ノーミスになるまで続くよ。この問題は明日も出るよ。</div>`:""}
+ <button class="bigbtn" id="gend">${G.m?"別の問題でやり直す":"結果を見る"}</button>`;bindBack();window.scrollTo(0,0);
+ if(G.m){G.retries++;document.getElementById("gend").onclick=()=>planNew(true)}
+ else{combo(3);document.getElementById("gend").onclick=()=>{grade("s:plan",G.retries===0);finish("plan",G.gained,G.retries?`${G.count}問目でノーミス`:"一発ノーミス")}}}
+
+/* ===== 本番練習（50分・手書き） ===== */
+let M,TM=null,WL=null;
+function stopTimer(){if(TM){clearInterval(TM);TM=null}try{WL&&WL.release()}catch(e){}WL=null}
+function startMock(){begin();S.seen.open_mock=1;save();
+ const pool=PROMPTS.filter(p=>tierOK(PTIER[p.id]||1));const used=S.mock.map(m=>m.id);
+ const p=shuffle(pool).sort((a,b)=>used.filter(x=>x===a.id).length-used.filter(x=>x===b.id).length)[0];
+ M={p,left:50*60,run:false};mockDraw()}
+function fmt(s){return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}
+function mockDraw(){view="mock";const p=M.p;
+ app.innerHTML=`${topbar("本番練習（50分）","")}
+ <div class="tags"><span class="tag ${p.past?"past":PTIER[p.id]===3?"hard":""}">${p.label}</span></div>
+ <div class="rule">原稿用紙（20字×30行など）と鉛筆を用意。本番と同じく<b>手書き</b>で書きます。<br>はじめに5分で設計図（4段落に何を書くか）をメモしてから書き始めよう。</div>
+ <div class="sheet"><b>【問】</b> ${p.chunks.map(c=>esc(c[1])).join("")}　なお、書き出しや改行の際の空欄、「、」「。」や、かぎかっこなどもそれぞれ字数に数えなさい。</div>
+ <div class="card"><div class="timer" id="tm">${fmt(M.left)}</div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px"><button class="bigbtn teal" id="go">${M.run?"一時停止":"スタート"}</button><button class="bigbtn ghost" id="fin">書き終えた</button></div></div>
+ <button class="bigbtn ghost" id="swap">別の問題にする</button>`;
+ bindBack();
+ document.getElementById("go").onclick=()=>{if(M.run){M.run=false;stopTimer();mockDraw()}else{M.run=true;try{navigator.wakeLock&&navigator.wakeLock.request("screen").then(w=>WL=w).catch(()=>{})}catch(e){}
+  TM=setInterval(()=>{M.left=Math.max(0,M.left-1);const el=document.getElementById("tm");if(el){el.textContent=fmt(M.left);el.classList.toggle("warn",M.left<=600)}
+   if(M.left===600)tone(880,.3);if(M.left===0){stopTimer();M.run=false;[523,523,523].forEach((f,i)=>tone(f,.3,i*.4));mockCheck()}},1000);mockDraw()}};
+ document.getElementById("fin").onclick=()=>{stopTimer();M.run=false;mockCheck()};
+ document.getElementById("swap").onclick=()=>{stopTimer();startMock()}}
+function mockCheck(){view="mockc";const used=50*60-M.left;
+ app.innerHTML=`${topbar("自己チェック",`かかった時間 ${fmt(used)}`)}
+ <p class="howto">書いた作文を読み返して、できたものにチェックしよう。正直に！</p>
+ <ul class="checks">${CHECKS.map((c,i)=>`<li><label for="ck${i}"><input type="checkbox" id="ck${i}" ${i===8&&M.left>0?"checked":""}><span>${c}</span></label></li>`).join("")}</ul>
+ <div class="rule">書いた原稿用紙の写真を、お父さんに送ろう。添削してもらえるよ。</div>
+ <button class="bigbtn" id="mdone">記録する</button>`;bindBack();window.scrollTo(0,0);
+ document.getElementById("mdone").onclick=()=>{const n=CHECKS.filter((_,i)=>document.getElementById("ck"+i).checked).length;
+  S.mock.push({date:ymd(),id:M.p.id,score:n,min:Math.round(used/60)});save();const xp=60+n*10;addXP(xp);catchFish(3,"本番練習の大物");catchFish(3,"本番練習の大物");
+  const wb=ymd()>=WB_START&&ymd()<=WB_END?S.mock.filter(m=>m.date>=WB_START&&m.date<=WB_END).length:0;
+  finish("mock",xp,`自己チェック ${n} / ${CHECKS.length}`,wb?`冬休み本番チャレンジ ${Math.min(wb,WB_GOAL)} / ${WB_GOAL}`:"")}}
+
+/* ===== 結果 ===== */
+function markDone(key){const d=today();d[key]=true;const r={bonus:0,complete:false,item:null};
+ if(missionKeys().every(k=>d[k])&&!d.bonus){d.bonus=true;S.xp+=50;r.bonus=50;r.complete=true;
+  const st=streak();const it=ITEMS.find(i=>i.d<=st&&!S.items[i.name]);if(it){S.items[it.name]=ymd();r.item=it}}
+ save();return r}
+function finish(key,gained,line,extra){stopTimer();const r=markDone(key);if(r.complete){const c=catchFish(3,"ミッション全クリアの大物");}gained+=r.bonus;view="res";const L=lvOf(S.xp),L0=lvOf(X0);
+ const notes=[extra,r.bonus?"今日のミッション全クリア！ +50 XP":""].filter(Boolean);
+ const mk=missionKeys(),d=today(),left=mk.filter(k=>!d[k]);
+ app.innerHTML=`<div class="res"><h2>クエスト完了</h2><div class="score">+${gained} XP</div><div>${line}</div>${notes.map(t=>`<div class="note">${t}</div>`).join("")}
+ <div class="small">Lv.${L} ${titleOf(L).name}／つぎのレベルまで あと ${xpFor(L+1)-S.xp} XP</div>
+ ${left.length&&mk.includes(key)?`<div class="small">今日のミッション 残り：${left.map(k=>GAMES[k].name).join("・")}</div>`:""}
+ ${left.length&&mk.includes(key)?`<button class="bigbtn" id="nextm">つぎのミッションへ：${GAMES[left[0]].name}</button>`:""}
+ ${CATCH.length?`<section class="card catches"><h2>今回つれた魚 <span class="small">${CATCH.length}匹（タップで解説）</span></h2><div class="clist">${CATCH.map((c,i)=>`<button class="citem" data-i="${i}"><span class="cpic"></span><span class="cn">${c.isNew?'<b class="newb">NEW</b>':c.big?'<b class="newb rec">記録更新</b>':""}${esc(c.f.n)} <span class="small">${c.z}cm</span></span><span class="cs">${c.label?`<b>${c.label}</b> `:""}${esc(c.f.f)}</span>${c.f.d?'<span class="cd">⚠ 危険な魚</span>':""}</button>`).join("")}</div></section>`:""}
+ <button class="bigbtn ${left.length&&mk.includes(key)?"ghost":""}" id="again">もう1回チャレンジ</button><button class="bigbtn ghost" id="hm">ホームへ</button></div>`;
+ const nm=document.getElementById("nextm");if(nm)nm.onclick=()=>GAMES[left[0]].start();
+ app.querySelectorAll(".citem").forEach(b=>{const c=CATCH[+b.dataset.i];b.querySelector(".cpic").appendChild(fishCanvas(c.f,120));b.onclick=()=>fishDetail(c.f)});
+ document.getElementById("again").onclick=()=>GAMES[key].start();
+ document.getElementById("hm").onclick=home;window.scrollTo(0,0);
+ const seq=[];if(L>L0)seq.push(ovLevel(L0,L));
+ newUnlocks().forEach(u=>seq.push(ovUnlock(u)));
+ if(r.complete)seq.push(ovDay(streak(),nextItem()));
+ if(r.item)seq.push(ovItem(r.item));
+ const zc=zCount();ZMILE.filter(m=>zc>=m&&!S.zmile.includes(m)).forEach(m=>{S.zmile.push(m);seq.push(()=>{sLV();return ovBox(`<div class="sm">さかな図鑑</div><div class="big">${m}種 達成！</div><div class="sm">あと${FISH.length-zc}種で図鑑完成。めざせ、さかな博士！</div>`)})});
+ if(zc===FISH.length&&!S.zmile.includes("all")){S.zmile.push("all");seq.push(()=>{sDAY();return ovBox(`<div class="big">図鑑<br>コンプリート！</div><div class="mid">さかな博士に認定！</div><div class="sm">全${FISH.length}種の魚を釣り上げた。本番の作文も、きっと大物が釣れる！</div>`,"whale")})}
+ save();
+ setTimeout(()=>playSeq(seq),600)}
+
+home();
+(()=>{const n=newUnlocks();if(n.length&&S.xp>0)setTimeout(()=>playSeq(n.map(ovUnlock)),500)})();
+
+</script>
+
+</body></html>
