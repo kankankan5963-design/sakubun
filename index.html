@@ -1073,7 +1073,8 @@ function topbar(title,prog){return `<div class="top"><button class="back" id="bk
 let AT=null;const clearAuto=()=>{if(AT){clearTimeout(AT);AT=null}};
 function autoNext(btn){clearAuto();if(!btn)return;btn.classList.add("auto");btn.insertAdjacentHTML("beforeend",'<span style="font-size:12px;display:block;font-family:var(--f-body)">魚が通り過ぎたら自動で進むよ</span>');AT=setTimeout(()=>{AT=null;if(btn.isConnected)btn.click()},SWIM_MS)}
 function bindBack(){document.getElementById("bk").onclick=()=>{clearAuto();stopTimer();home()}}
-function begin(){CATCH=[];X0=S.xp;T0=new Set(UNL.filter(u=>isOpen(u.id)).map(u=>u.id))}
+let WR=[];
+function begin(){CATCH=[];WR=[];X0=S.xp;T0=new Set(UNL.filter(u=>isOpen(u.id)).map(u=>u.id))}
 
 /* ===== ホーム ===== */
 function home(){view="home";const L=lvOf(S.xp),t=titleOf(L),d=today(),mk=missionKeys();
@@ -1114,7 +1115,8 @@ function home(){view="home";const L=lvOf(S.xp),t=titleOf(L),d=today(),mk=mission
     <li><b>体験</b>：いつ・どこで・何をしたかを具体的に</li>
     <li><b>学び</b>：体験から何を学んだか</li>
     <li><b>入学後・将来</b>：二つめの問いに答え、決意で結ぶ</li></ol>
-   <p class="small" style="margin:8px 0 0">採点の観点：出題を正しく理解しているか／考えを明確に述べているか／筋道が整っているか／言葉の使い方が適切か。50分・500〜600字・200点。</p></section>`;
+   <p class="small" style="margin:8px 0 0">採点の観点：出題を正しく理解しているか／考えを明確に述べているか／筋道が整っているか／言葉の使い方が適切か。50分・500〜600字・200点。</p></section>
+ ${canSync()?`<p class="small" style="text-align:center;margin:0">記録は解き終わるたびに自動で保存されます${S.synced?`（最後の送信 ${new Date(S.synced).getMonth()+1}/${new Date(S.synced).getDate()} ${String(new Date(S.synced).getHours()).padStart(2,"0")}:${String(new Date(S.synced).getMinutes()).padStart(2,"0")}）`:""}</p>`:""}`;
  document.getElementById("me").appendChild(sprite(t.spr,60));
  if(ni)document.getElementById("nexti").prepend(sprite(ni.spr,22,true));
  const sh=document.getElementById("shelf");
@@ -1167,7 +1169,7 @@ function tagJudge(){clearAuto();if(T.done){T.i++;if(T.i<T.list.length)return tag
  const groups={};p.chunks.forEach(c=>{if(c[0]==="q")(groups[c[2]]=groups[c[2]]||[]).push(c[1])});const qs=Object.keys(groups).sort().map(k=>groups[k].join(" … "));
  let xp=ok*4+(PTIER[p.id]===3?10:0);grade("t:"+p.id,all);
  if(all){xp+=15;if(!it.retry)T.first++;T.combo++;sOK();combo(T.combo);catchFish()}
- else{T.combo=0;sNG();const pool=prior(TAGK());const nk=pool.filter(k=>!T.used.has(k))[0]||pool.filter(k=>k!=="t:"+p.id)[0];T.used.add(nk);T.list.push({p:promptOf(nk),retry:true});T.retries++}
+ else{T.combo=0;sNG();WR.push(p.label+"の問い分解");const pool=prior(TAGK());const nk=pool.filter(k=>!T.used.has(k))[0]||pool.filter(k=>k!=="t:"+p.id)[0];T.used.add(nk);T.list.push({p:promptOf(nk),retry:true});T.retries++}
  T.gained+=xp;addXP(xp);
  const how=qs.length>=3?"問いが3つのときは、問い①を段落1、問い②を段落2〜3（体験と考え）、問い③を段落4で答える。":"組み立て方：問い①は段落1〜3（結論→体験→学び）で、問い②は段落4で答える。";
  document.getElementById("fb").innerHTML=`<div class="fb ${all?"good":"bad"}"><h3>${all?"パーフェクト！":`${n}つ中 ${ok}つ正解`}</h3>
@@ -1176,7 +1178,7 @@ function tagJudge(){clearAuto();if(T.done){T.i++;if(T.i<T.list.length)return tag
   <div class="small">${how}${cs.some(c=>c[1].includes("体験"))?"「体験をふまえて」とあるので、体験の段落は必ず入れること。":""}</div>
   ${all?"":`<div class="again">別の問題でもう一度！パーフェクトになるまで続くよ。この問題は明日も出るよ。</div>`}</div>`;
  const j=document.getElementById("judge");j.textContent=!all?"別の問題でやり直す":T.i+1<T.list.length?"つぎの問題へ":"結果を見る";
- j.scrollIntoView({block:"nearest",behavior:"smooth"});if(all)autoNext(j)}
+ j.scrollIntoView({block:"nearest",behavior:"smooth"})}
 
 /* ===== 段落パズル ===== */
 let P;
@@ -1205,7 +1207,7 @@ function puzDone(){const e=P.e;const lens=e.paras.map(t=>t.length+1);const tot=l
  <button class="bigbtn" id="pend">${P.m?"別の作文でやり直す":sent?"ボーナス：体験の段落の文を並べる":"結果を見る"}</button>`}
 function puzFinish(){const xp=P.m===0?45:Math.max(15,45-P.m*8);P.gained+=xp;addXP(xp);grade("p:"+P.e.id,P.m===0);catchFish();if(!P.m)setTimeout(()=>catchFish(),700);
  const end=()=>{grade("s:puz",P.retries===0);finish("puz",P.gained,P.retries?`${P.count}本目でノーミス完成`:"一発ノーミス完成")};
- if(P.m){P.retries++;document.getElementById("pend").onclick=()=>puzNew(true)}
+ if(P.m){P.retries++;WR.push("段落パズル「"+P.e.title+"」"+P.m+"回");document.getElementById("pend").onclick=()=>puzNew(true)}
  else{combo(3);document.getElementById("pend").onclick=isOpen("sent")?()=>sentStart(end):end}}
 // 文の並べかえ（体験の段落）
 let Q;
@@ -1236,13 +1238,13 @@ function betAns(c){const p=B.list[B.i];const goodIdx=B.flip?1:0;const ok=c===goo
  const bs=app.querySelectorAll(".choice");bs.forEach((b,i)=>{b.disabled=true;if(i===goodIdx)b.classList.add("right");else if(i===c)b.classList.add("wrong")});
  if(!p.retry)grade("k:"+p.k,ok);
  if(ok){if(!p.retry)B.ok++;B.combo++;const xp=(p.retry?5:10)+Math.min(10,(B.combo-1)*2);B.gained+=xp;addXP(xp);sOK();combo(B.combo);catchFish()}
- else{B.combo=0;sNG();const v=pickVar(p.k,B.used);B.used.add(v.i);B.list.push({...v,retry:true});B.retries++}
+ else{B.combo=0;sNG();WR.push(SKILLS[p.k]);const v=pickVar(p.k,B.used);B.used.add(v.i);B.list.push({...v,retry:true});B.retries++}
  document.getElementById("fb").innerHTML=`<div class="fb ${ok?"good":"bad"}"><h3>${ok?"正解！":"ざんねん"}</h3>${esc(p.why)}
   ${ok?"":`<div class="again">「${SKILLS[p.k]}」の別の問題が、このあともう一度出るよ。明日の復習にも出るよ。</div>`}</div>
   <button class="bigbtn" id="nx" style="margin-top:10px">${B.i+1<B.list.length?"つぎへ":"結果を見る"}</button>`;
  document.getElementById("nx").onclick=()=>{clearAuto();B.i++;if(B.i<B.list.length)betQ();else{const first=B.list.length-B.retries;let bonus=B.retries===0?30:0;if(bonus){B.gained+=bonus;S.xp+=bonus;save()}
   finish("bet",B.gained,`${first}問中 ${B.ok}問 一発正解`+(B.retries?`／やり直し ${B.retries}問クリア`:""),bonus?"全問一発正解ボーナス +30 XP":"")}};
- document.getElementById("nx").scrollIntoView({block:"nearest",behavior:"smooth"});if(ok)autoNext(document.getElementById("nx"))}
+ document.getElementById("nx").scrollIntoView({block:"nearest",behavior:"smooth"})}
 
 /* ===== 設計図ボス ===== */
 let G;
@@ -1260,7 +1262,7 @@ function planDraw(){view="plan";const pl=G.p,pr=PROMPTS.find(p=>p.id===pl.prompt
  <div class="choices">${G.ord.map((oi,n)=>`<button class="choice" data-o="${oi}"><span class="ab">${"ABC"[n]}</span><span>${esc(step.o[oi][0])}</span></button>`).join("")}</div>`;
  bindBack();
  app.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{const oi=+b.dataset.o;if(oi===0){sOK();G.s++;catchFish();planDraw()}
-  else{if(b.disabled)return;G.m++;sNG();b.disabled=true;b.classList.add("wrong","shake");b.insertAdjacentHTML("beforeend",`<span class="why">× ${esc(step.o[oi][1])}</span>`);app.querySelector(".prog").textContent=`段落 ${G.s+1} / 4　まちがい ${G.m}`}})}
+  else{if(b.disabled)return;G.m++;sNG();WR.push("設計図「"+pr.label+"」第"+(G.s+1)+"段落");b.disabled=true;b.classList.add("wrong","shake");b.insertAdjacentHTML("beforeend",`<span class="why">× ${esc(step.o[oi][1])}</span>`);app.querySelector(".prog").textContent=`段落 ${G.s+1} / 4　まちがい ${G.m}`}})}
 function planDone(){const xp=G.m===0?60:Math.max(20,60-G.m*10);G.gained+=xp;addXP(xp);grade("l:"+G.p.id,G.m===0);
  const pl=G.p;const tot=pl.steps.reduce((a,s)=>a+s.o[0][0].length+1,0);
  app.innerHTML=`${topbar("設計図ボス","完成")}
@@ -1305,6 +1307,24 @@ function mockCheck(){view="mockc";const used=50*60-M.left;
   const wb=ymd()>=WB_START&&ymd()<=WB_END?S.mock.filter(m=>m.date>=WB_START&&m.date<=WB_END).length:0;
   finish("mock",xp,`自己チェック ${n} / ${CHECKS.length}`,wb?`冬休み本番チャレンジ ${Math.min(wb,WB_GOAL)} / ${WB_GOAL}`:"")}}
 
+/* ===== お父さんへの記録送信（Googleスプレッドシート） ===== */
+const SYNC_URL="https://script.google.com/macros/s/AKfycbxDXgTr7EMq58QXpMf3fVPlQnsrI9eF3fwIID66se76HalJnp67muJDtJH3FdFspFNS/exec";
+const canSync=()=>/^https:\/\/script\.google\.com\//.test(SYNC_URL);
+function makeSummary(){const L=lvOf(S.xp);const days={};for(let i=0;i<28;i++){const k=addDays(-i);const d=S.days[k];if(d){days[k]=d.bonus?2:Object.keys(d).length?1:0}}
+ const sk=[["s:tag","問いと条件を見分ける"],["s:puz","段落の組み立て"],...(isOpen("plan")?[["s:plan","設計図づくり"]]:[]),...BETK().map(k=>[k,SKILLS[k.slice(2)]])];
+ const u=UNL.find(x=>x.id==="mock");const wbn=S.mock.filter(m=>m.date>=WB_START&&m.date<=WB_END).length;
+ return {lv:L,title:titleOf(L).name,xp:S.xp,streak:streak(),zukan:zCount(),zukanAll:FISH.length,items:Object.keys(S.items),
+  missions:missionKeys().map(k=>({name:GAMES[k].name,done:!!today()[k]})),days,
+  skills:sk.map(([k,n])=>({name:n,stars:stars(k),due:isDue(k)})),
+  mock:S.mock.slice(-12).map(m=>{const p=PROMPTS.find(x=>x.id===m.id);return {date:m.date,label:p?p.label+"："+p.chunks.filter(c=>c[0]==="q").map(c=>c[1]).join("").slice(0,24)+"…":"",score:m.score,min:m.min}}),
+  mockOpen:isOpen("mock")?"開いています":`Lv.${u.lv} か ${md(u.date)} に開きます`,
+  wb:ymd()>="2026-12-01"?{n:wbn,goal:WB_GOAL}:null,open:UNL.filter(x=>isOpen(x.id)).map(x=>x.name)}}
+function syncPush(log){if(!canSync())return;try{
+ fetch(SYNC_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({state:JSON.stringify(S),summary:JSON.stringify(makeSummary()),log})})
+  .then(()=>{S.synced=Date.now();save()}).catch(()=>{})}catch(e){}}
+function syncRestore(){if(!canSync()||S.xp>0||Object.values(S.days).some(d=>Object.keys(d).length))return;
+ fetch(SYNC_URL+"?action=state").then(r=>r.json()).then(j=>{if(!j||!j.state)return;const v=JSON.parse(j.state);if(v&&v.xp>0){S=v;S.srs=S.srs||{};S.zukan=S.zukan||{};S.zmile=S.zmile||[];S.items=S.items||{};S.mock=S.mock||[];S.ann=S.ann||[];S.seen=S.seen||{};save();if(view==="home"){home();toast("これまでの記録を読みこみました")}}}).catch(()=>{})}
+
 /* ===== 結果 ===== */
 function markDone(key){const d=today();d[key]=true;const r={bonus:0,complete:false,item:null};
  if(missionKeys().every(k=>d[k])&&!d.bonus){d.bonus=true;S.xp+=50;r.bonus=50;r.complete=true;
@@ -1330,9 +1350,11 @@ function finish(key,gained,line,extra){stopTimer();const r=markDone(key);if(r.co
  const zc=zCount();ZMILE.filter(m=>zc>=m&&!S.zmile.includes(m)).forEach(m=>{S.zmile.push(m);seq.push(()=>{sLV();return ovBox(`<div class="sm">さかな図鑑</div><div class="big">${m}種 達成！</div><div class="sm">あと${FISH.length-zc}種で図鑑完成。めざせ、さかな博士！</div>`)})});
  if(zc===FISH.length&&!S.zmile.includes("all")){S.zmile.push("all");seq.push(()=>{sDAY();return ovBox(`<div class="big">図鑑<br>コンプリート！</div><div class="mid">さかな博士に認定！</div><div class="sm">全${FISH.length}種の魚を釣り上げた。本番の作文も、きっと大物が釣れる！</div>`,"whale")})}
  save();
- setTimeout(()=>playSeq(seq),600)}
+ setTimeout(()=>playSeq(seq),600);
+ syncPush({game:GAMES[key].name,result:line+(notes.length?"／"+notes.join("／"):""),xp:gained,lv:L,streak:streak(),zukan:zCount()+"/"+FISH.length,
+  fish:CATCH.map(c=>c.f.n+(c.isNew?"(NEW)":"")+" "+c.z+"cm").join("、"),wrong:WR.join("、")})}
 
-home();
+home();syncRestore();
 (()=>{const n=newUnlocks();if(n.length&&S.xp>0)setTimeout(()=>playSeq(n.map(ovUnlock)),500)})();
 
 </script>
